@@ -41,7 +41,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A repo with no SKILL.md anywhere produces a visible warning and is skipped without aborting the run
   4. Running sync twice with no upstream changes produces no planned actions (idempotency verified via resolver output)
   5. GitHub API rate limit errors produce a clear message showing remaining quota rather than a generic crash
-**Plans**: TBD
+**Plans**: 3 plans
+- [ ] 02-01-PLAN.md — GitHub API client with auth discovery and Trees API integration
+- [ ] 02-02-PLAN.md — Pure sync resolver with skill detection and action resolution
+- [ ] 02-03-PLAN.md — Wire GitHub client + resolver into main run() pipeline
 
 ### Phase 3: Sync Engine
 **Goal**: The tool can install, update, and remove skills on disk, targeting local or global directories, while leaving no corrupted state on network failure or interruption
@@ -75,6 +78,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 0/TBD | Complete    | 2026-02-28 |
-| 2. GitHub + Resolver | 0/TBD | Not started | - |
+| 2. GitHub + Resolver | 0/3 | In progress | - |
 | 3. Sync Engine | 0/TBD | Not started | - |
 | 4. CLI + UX | 0/TBD | Not started | - |
