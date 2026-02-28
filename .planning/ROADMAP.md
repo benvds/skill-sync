@@ -13,7 +13,7 @@ Four phases deliver a working Rust CLI from scratch: Phase 1 lays the crate foun
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Crate scaffold, manifest parsing, metadata types, and error infrastructure (completed 2026-02-28)
-- [ ] **Phase 2: GitHub + Resolver** - GitHub API integration and pure sync plan logic
+- [x] **Phase 2: GitHub + Resolver** - GitHub API integration and pure sync plan logic (completed 2026-02-28)
 - [ ] **Phase 3: Sync Engine** - Git operations, install/update/orphan flow, and failure safety
 - [ ] **Phase 4: CLI + UX** - Full CLI surface, flags, output polish, and distribution
 
@@ -42,9 +42,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Running sync twice with no upstream changes produces no planned actions (idempotency verified via resolver output)
   5. GitHub API rate limit errors produce a clear message showing remaining quota rather than a generic crash
 **Plans**: 3 plans
-- [ ] 02-01-PLAN.md — GitHub API client with auth discovery and Trees API integration
-- [ ] 02-02-PLAN.md — Pure sync resolver with skill detection and action resolution
-- [ ] 02-03-PLAN.md — Wire GitHub client + resolver into main run() pipeline
+- [x] 02-01-PLAN.md — GitHub API client with auth discovery and Trees API integration
+- [x] 02-02-PLAN.md — Pure sync resolver with skill detection and action resolution
+- [x] 02-03-PLAN.md — Wire GitHub client + resolver into main run() pipeline
 
 ### Phase 3: Sync Engine
 **Goal**: The tool can install, update, and remove skills on disk, targeting local or global directories, while leaving no corrupted state on network failure or interruption
@@ -78,6 +78,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 0/TBD | Complete    | 2026-02-28 |
-| 2. GitHub + Resolver | 0/3 | In progress | - |
+| 2. GitHub + Resolver | 3/3 | Complete | 2026-02-28 |
 | 3. Sync Engine | 0/TBD | Not started | - |
 | 4. CLI + UX | 0/TBD | Not started | - |
