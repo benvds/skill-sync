@@ -12,7 +12,7 @@ Four phases deliver a working Rust CLI from scratch: Phase 1 lays the crate foun
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation** - Crate scaffold, manifest parsing, metadata types, and error infrastructure
+- [x] **Phase 1: Foundation** - Crate scaffold, manifest parsing, metadata types, and error infrastructure (completed 2026-02-28)
 - [ ] **Phase 2: GitHub + Resolver** - GitHub API integration and pure sync plan logic
 - [ ] **Phase 3: Sync Engine** - Git operations, install/update/orphan flow, and failure safety
 - [ ] **Phase 4: CLI + UX** - Full CLI surface, flags, output polish, and distribution
@@ -74,7 +74,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/TBD | Not started | - |
+| 1. Foundation | 0/TBD | Complete    | 2026-02-28 |
 | 2. GitHub + Resolver | 0/TBD | Not started | - |
 | 3. Sync Engine | 0/TBD | Not started | - |
 | 4. CLI + UX | 0/TBD | Not started | - |
