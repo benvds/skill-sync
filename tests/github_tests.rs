@@ -1,25 +1,40 @@
 use skills_sync::github::{
     AuthMethod, GitHubClient, RepoInfo, TreeEntry, TreeResponse,
 };
+use std::sync::Mutex;
+
+// Mutex to serialize env var tests (env vars are process-global)
+static ENV_MUTEX: Mutex<()> = Mutex::new(());
 
 #[test]
 fn discover_token_from_env() {
-    // Set GITHUB_TOKEN env var for this test
+    let _lock = ENV_MUTEX.lock().unwrap();
+    // Save and restore original value
+    let original = std::env::var("GITHUB_TOKEN").ok();
     std::env::set_var("GITHUB_TOKEN", "test-token-123");
     let (token, method) = skills_sync::github::discover_token();
+    // Restore
+    match original {
+        Some(v) => std::env::set_var("GITHUB_TOKEN", v),
+        None => std::env::remove_var("GITHUB_TOKEN"),
+    }
     assert_eq!(token, Some("test-token-123".to_string()));
     assert_eq!(method, AuthMethod::EnvVar);
-    // Clean up
-    std::env::remove_var("GITHUB_TOKEN");
 }
 
 #[test]
 fn discover_token_empty_env_falls_through() {
+    let _lock = ENV_MUTEX.lock().unwrap();
+    let original = std::env::var("GITHUB_TOKEN").ok();
     std::env::set_var("GITHUB_TOKEN", "");
     let (_token, method) = skills_sync::github::discover_token();
+    // Restore
+    match original {
+        Some(v) => std::env::set_var("GITHUB_TOKEN", v),
+        None => std::env::remove_var("GITHUB_TOKEN"),
+    }
     // Empty GITHUB_TOKEN should fall through — method is either GhCli or Unauthenticated
     assert_ne!(method, AuthMethod::EnvVar);
-    std::env::remove_var("GITHUB_TOKEN");
 }
 
 #[test]
