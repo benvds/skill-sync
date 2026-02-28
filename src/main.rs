@@ -1,5 +1,7 @@
 use clap::Parser;
 use skills_sync::cli::Cli;
+use skills_sync::config::discover_manifest;
+use skills_sync::init::run_init;
 use skills_sync::manifest;
 
 fn main() {
@@ -24,25 +26,11 @@ fn main() {
 
 fn run(cli: Cli) -> skills_sync::error::Result<()> {
     if cli.init {
-        // Will be implemented in Plan 03
-        eprintln!("--init not yet implemented");
-        return Ok(());
+        let path = std::path::PathBuf::from(".skills.toml");
+        return run_init(&path);
     }
 
-    // Discover manifest (placeholder — full discovery in Plan 03)
-    let manifest_path = if let Some(ref config) = cli.config {
-        config.clone()
-    } else {
-        std::path::PathBuf::from(".skills.toml")
-    };
-
-    if !manifest_path.exists() {
-        return Err(skills_sync::error::SkillsSyncError::ManifestNotFound {
-            searched: vec![manifest_path],
-        }
-        .into());
-    }
-
+    let manifest_path = discover_manifest(cli.config.as_deref())?;
     let content =
         std::fs::read_to_string(&manifest_path).map_err(skills_sync::error::SkillsSyncError::Io)?;
     let _manifest = manifest::parse_and_validate(&content, &manifest_path)?;
