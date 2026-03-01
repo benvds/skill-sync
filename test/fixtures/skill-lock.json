@@ -1,0 +1,22 @@
+{
+  "version": 3,
+  "skills": {
+    "git-helpers": {
+      "source": "acme-org/dev-skills",
+      "provider": "github",
+      "url": "https://github.com/acme-org/dev-skills",
+      "subpath": "git-helpers"
+    },
+    "code-review": {
+      "source": "acme-org/dev-skills",
+      "provider": "github",
+      "url": "https://github.com/acme-org/dev-skills",
+      "subpath": "code-review"
+    },
+    "security-scan": {
+      "source": "Owner/Security-Tools",
+      "provider": "github",
+      "url": "https://github.com/Owner/Security-Tools"
+    }
+  }
+}

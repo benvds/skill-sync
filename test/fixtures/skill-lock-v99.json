@@ -1,0 +1,11 @@
+{
+  "version": 99,
+  "skills": {
+    "git-helpers": {
+      "source": "acme-org/dev-skills",
+      "provider": "github",
+      "url": "https://github.com/acme-org/dev-skills",
+      "subpath": "git-helpers"
+    }
+  }
+}
