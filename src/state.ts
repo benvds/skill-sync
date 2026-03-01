@@ -2,6 +2,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import type { InstalledState } from './types.js'
+import { readSourcesFile } from './sources.js'
 
 /** Lock file version this tool understands. Mismatch triggers fallback to empty state. */
 const EXPECTED_LOCK_VERSION = 3
@@ -93,6 +94,17 @@ const LOCAL_SKILL_DIRS = ['.agents/skills', '.claude/skills'] as const
 export async function readLocalState(
   basePath: string = process.cwd()
 ): Promise<InstalledState> {
+  // Try source attribution file first (Phase 2)
+  const sourcesFile = await readSourcesFile(basePath)
+  if (sourcesFile) {
+    const bySource = new Map<string, string[]>()
+    for (const [source, names] of Object.entries(sourcesFile.sources)) {
+      bySource.set(source, names)
+    }
+    return { bySource }
+  }
+
+  // Fallback: scan filesystem (Phase 1 behavior)
   const skillNames: string[] = []
 
   for (const relDir of LOCAL_SKILL_DIRS) {
