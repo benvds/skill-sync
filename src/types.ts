@@ -34,6 +34,7 @@ export interface SyncOptions {
   yes?: boolean       // --yes: skip prompts, pass -y to subcommands
   verbose?: boolean   // --verbose: show npx commands being run
   agent?: string      // --agent: passed to npx skills add/remove
+  check?: boolean     // --check: exit 0/1 based on sync state (CI gate)
 }
 
 /** Summary result of a sync operation */
