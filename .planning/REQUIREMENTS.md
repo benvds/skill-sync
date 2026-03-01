@@ -16,13 +16,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### State Reading
 
-- [ ] **STATE-01**: Tool reads Vercel's `~/.agents/.skill-lock.json` for global-scope installed skills with schema version validation
-- [ ] **STATE-02**: Tool scans `.agents/skills/` and `.claude/skills/` filesystem for project-scope installed skills
+- [x] **STATE-01**: Tool reads Vercel's `~/.agents/.skill-lock.json` for global-scope installed skills with schema version validation
+- [x] **STATE-02**: Tool scans `.agents/skills/` and `.claude/skills/` filesystem for project-scope installed skills
 - [ ] **STATE-03**: Tool reads `.skills-sync-sources.json` for project-scope source attribution (orphan detection)
 
 ### Sync
 
-- [ ] **SYNC-01**: Tool computes diff: missing sources (in manifest, not installed), orphaned skills (installed, not in manifest), present (in both)
+- [x] **SYNC-01**: Tool computes diff: missing sources (in manifest, not installed), orphaned skills (installed, not in manifest), present (in both)
 - [ ] **SYNC-02**: Tool installs missing skills by shelling out to `npx skills add <source> --yes` with appropriate scope flags
 - [ ] **SYNC-03**: Tool detects orphaned skills and prompts user for removal (or auto-removes with `--yes`)
 - [ ] **SYNC-04**: Tool removes orphaned skills by shelling out to `npx skills remove <name> --yes`
@@ -83,10 +83,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MNFST-02 | Phase 1 | Complete |
 | MNFST-03 | Phase 1 | Complete |
 | MNFST-04 | Phase 1 | Complete |
-| STATE-01 | Phase 1 | Pending |
-| STATE-02 | Phase 1 | Pending |
+| STATE-01 | Phase 1 | Complete |
+| STATE-02 | Phase 1 | Complete |
 | STATE-03 | Phase 2 | Pending |
-| SYNC-01 | Phase 1 | Pending |
+| SYNC-01 | Phase 1 | Complete |
 | SYNC-02 | Phase 1 | Pending |
 | SYNC-03 | Phase 2 | Pending |
 | SYNC-04 | Phase 2 | Pending |

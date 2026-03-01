@@ -23,27 +23,27 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 3 (Core Sync Pipeline)
-Plan: 2 of TBD in current phase
+Plan: 3 of TBD in current phase
 Status: In progress
-Last activity: 2026-03-01 — Plan 01-02 complete: manifest parser + init template
+Last activity: 2026-03-01 — Plan 01-03 complete: state readers (global lock file + local filesystem) and pure diff computation
 
-Progress: [██░░░░░░░░] 20%
+Progress: [███░░░░░░░] 30%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 2
-- Average duration: 2.5 min
-- Total execution time: 0.08 hours
+- Total plans completed: 3
+- Average duration: 2.7 min
+- Total execution time: 0.13 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-core-sync-pipeline | 2 | 5 min | 2.5 min |
+| 01-core-sync-pipeline | 3 | 8 min | 2.7 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-02 (2 min)
+- Last 5 plans: 01-01 (3 min), 01-02 (2 min), 01-03 (3 min)
 - Trend: -
 
 *Updated after each plan completion*
@@ -65,6 +65,9 @@ Recent decisions affecting current work:
 - [Phase 01-02]: parseManifest exported as public function for direct unit testing without filesystem I/O
 - [Phase 01-02]: Sources trimmed but NOT normalized in manifest.ts — case normalization is diff.ts responsibility
 - [Phase 01-02]: writeManifestTemplate refuses to overwrite existing file with descriptive error
+- [01-03]: EXPECTED_LOCK_VERSION = 3 in state.ts — version mismatch falls back to empty state with console.error warning
+- [01-03]: All locally detected skills grouped under __local__ source key until Phase 2 adds .skills-sync-sources.json
+- [01-03]: Original source strings preserved in Diff.toAdd and Diff.unchanged — normalizeSource is for comparison only
 
 ### Pending Todos
 
@@ -72,12 +75,12 @@ None.
 
 ### Blockers/Concerns
 
-- [Phase 1]: Lock file internal schema (`~/.agents/.skill-lock.json`) is undocumented — verify actual format before writing parser; implement `EXPECTED_LOCK_VERSION` check from day one
+- [Phase 1 - RESOLVED]: Lock file internal schema verified and implemented in 01-03: EXPECTED_LOCK_VERSION=3, skills map keyed by skill name with source field
 - [Phase 2]: `.skills-sync-sources.json` schema needs explicit design before Phase 2 begins (no upstream reference)
 - [Phase 1]: Verify exact flags accepted by `npx skills add/remove` with a real invocation before wiring executor.ts
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 01-02-PLAN.md — manifest parser + init template done; ready for 01-03 (state reader)
+Stopped at: Completed 01-03-PLAN.md — state readers (global lock + local filesystem) and pure diff done; ready for 01-04 (executor)
 Resume file: None
