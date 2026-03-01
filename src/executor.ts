@@ -69,5 +69,6 @@ export async function executeSync(diff: Diff, options: SyncOptions): Promise<Syn
     installed,
     failed,
     unchanged: diff.unchanged.length,
+    removed: 0,
   }
 }
