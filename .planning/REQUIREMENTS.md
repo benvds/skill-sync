@@ -41,7 +41,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **OUTP-01**: Tool prints colored summary: X installed, Y removed, Z unchanged
 - [ ] **OUTP-02**: Tool shows pre-sync diff preview with confirmation prompt (unless `--yes`)
-- [ ] **OUTP-03**: Error messages include remediation hints (missing manifest → `--init`, invalid TOML → line/column, `npx skills` unavailable → install hint)
+- [x] **OUTP-03**: Error messages include remediation hints (missing manifest → `--init`, invalid TOML → line/column, `npx skills` unavailable → install hint)
 
 ### Distribution
 
@@ -99,7 +99,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FLAG-06 | Phase 3 | Pending |
 | OUTP-01 | Phase 1 | Pending |
 | OUTP-02 | Phase 2 | Pending |
-| OUTP-03 | Phase 1 | Pending |
+| OUTP-03 | Phase 1 | Complete |
 | DIST-01 | Phase 3 | Pending |
 
 **Coverage:**
