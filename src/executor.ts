@@ -16,6 +16,51 @@ import type { Diff, SyncOptions, SyncResult } from './types.js'
 import { reporter } from './reporter.js'
 
 /**
+ * Remove orphaned skills by calling npx skills remove.
+ * Batches all skill names into a single subprocess call.
+ *
+ * @param skillNames - Skill directory names to remove (NOT source URLs)
+ * @param options - Sync options (scope, dryRun, verbose, agent)
+ * @returns Number of skills removed (0 on failure, skillNames.length on success)
+ */
+export async function removeSkills(
+  skillNames: string[],
+  options: SyncOptions
+): Promise<number> {
+  if (skillNames.length === 0) return 0
+
+  const args = ['skills', 'remove', ...skillNames, '--yes']
+  if (options.scope === 'global') args.push('--global')
+  if (options.agent) args.push('--agent', options.agent)
+
+  const cmd = `npx ${args.join(' ')}`
+  if (options.verbose) reporter.printCommand(cmd)
+
+  if (options.dryRun) {
+    reporter.printDryRunCommand(cmd)
+    return 0
+  }
+
+  for (const name of skillNames) {
+    reporter.printRemoving(name)
+  }
+
+  try {
+    await execa('npx', args, { stdout: 'inherit', stderr: 'inherit' })
+    for (const name of skillNames) {
+      reporter.printRemoved(name)
+    }
+    return skillNames.length
+  } catch (err) {
+    const reason = err instanceof ExecaError ? err.message : String(err)
+    for (const name of skillNames) {
+      reporter.warnRemoveFailed(name, reason)
+    }
+    return 0
+  }
+}
+
+/**
  * Execute the sync: install all sources in diff.toAdd, print unchanged.
  *
  * @param diff    - Computed diff (toAdd, unchanged, toRemove)
@@ -34,7 +79,10 @@ export async function executeSync(diff: Diff, options: SyncOptions): Promise<Syn
       args.push('--global')
     }
 
-    // Always show command being run (plumbing for --verbose in Phase 2)
+    if (options.agent) {
+      args.push('--agent', options.agent)
+    }
+
     const cmd = `npx ${args.join(' ')}`
 
     if (options.dryRun) {
@@ -43,7 +91,7 @@ export async function executeSync(diff: Diff, options: SyncOptions): Promise<Syn
       continue
     }
 
-    reporter.printCommand(cmd)
+    if (options.verbose) reporter.printCommand(cmd)
 
     try {
       await execa('npx', args, {

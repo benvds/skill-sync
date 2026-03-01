@@ -31,12 +31,18 @@ vi.mock('../src/reporter.js', () => ({
     printError: vi.fn(),
     warnLockVersionMismatch: vi.fn(),
     warnLockFileCorrupt: vi.fn(),
+    printOrphans: vi.fn(),
+    printRemoving: vi.fn(),
+    printRemoved: vi.fn(),
+    warnRemoveFailed: vi.fn(),
+    warnSkippingOrphans: vi.fn(),
+    printPreSyncPreview: vi.fn(),
   },
 }))
 
 import { execa } from 'execa'
 import { reporter } from '../src/reporter.js'
-import { executeSync } from '../src/executor.js'
+import { executeSync, removeSkills } from '../src/executor.js'
 import type { Diff, SyncOptions } from '../src/types.js'
 
 const mockExeca = vi.mocked(execa)
@@ -197,5 +203,110 @@ describe('executeSync', () => {
       await executeSync(diff, makeOptions())
       expect(mockReporter.printUnchanged).toHaveBeenCalledTimes(2)
     })
+  })
+
+  describe('verbose gating', () => {
+    it('does NOT call printCommand when verbose is undefined', async () => {
+      const diff = makeDiff(['owner/repo'])
+      await executeSync(diff, makeOptions())
+      expect(mockReporter.printCommand).not.toHaveBeenCalled()
+    })
+
+    it('calls printCommand when verbose is true', async () => {
+      const diff = makeDiff(['owner/repo'])
+      await executeSync(diff, makeOptions({ verbose: true }))
+      expect(mockReporter.printCommand).toHaveBeenCalled()
+    })
+  })
+
+  describe('agent flag', () => {
+    it('passes --agent to npx skills add when options.agent is set', async () => {
+      const diff = makeDiff(['owner/repo'])
+      await executeSync(diff, makeOptions({ agent: 'claude-code' }))
+      const args = mockExeca.mock.calls[0][1] as string[]
+      expect(args).toContain('--agent')
+      expect(args).toContain('claude-code')
+    })
+
+    it('does NOT include --agent when options.agent is undefined', async () => {
+      const diff = makeDiff(['owner/repo'])
+      await executeSync(diff, makeOptions())
+      const args = mockExeca.mock.calls[0][1] as string[]
+      expect(args).not.toContain('--agent')
+    })
+  })
+})
+
+describe('removeSkills', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockExeca.mockResolvedValue(undefined as any)
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('calls npx skills remove with skill names and --yes', async () => {
+    await removeSkills(['skill-a', 'skill-b'], makeOptions())
+    expect(mockExeca).toHaveBeenCalledOnce()
+    const args = mockExeca.mock.calls[0][1] as string[]
+    expect(args).toContain('skills')
+    expect(args).toContain('remove')
+    expect(args).toContain('skill-a')
+    expect(args).toContain('skill-b')
+    expect(args).toContain('--yes')
+  })
+
+  it('passes --global when scope is global', async () => {
+    await removeSkills(['skill-a'], makeOptions({ scope: 'global' }))
+    const args = mockExeca.mock.calls[0][1] as string[]
+    expect(args).toContain('--global')
+  })
+
+  it('passes --agent when options.agent is set', async () => {
+    await removeSkills(['skill-a'], makeOptions({ agent: 'claude-code' }))
+    const args = mockExeca.mock.calls[0][1] as string[]
+    expect(args).toContain('--agent')
+    expect(args).toContain('claude-code')
+  })
+
+  it('does NOT call execa in dry-run mode', async () => {
+    await removeSkills(['skill-a'], makeOptions({ dryRun: true }))
+    expect(mockExeca).not.toHaveBeenCalled()
+    expect(mockReporter.printDryRunCommand).toHaveBeenCalled()
+  })
+
+  it('returns 0 on failure', async () => {
+    const { ExecaError } = await import('execa')
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockExeca.mockRejectedValueOnce(new (ExecaError as any)('Command failed'))
+
+    const result = await removeSkills(['skill-a'], makeOptions())
+
+    expect(result).toBe(0)
+    expect(mockReporter.warnRemoveFailed).toHaveBeenCalled()
+  })
+
+  it('returns skillNames.length on success', async () => {
+    const result = await removeSkills(['skill-a', 'skill-b'], makeOptions())
+    expect(result).toBe(2)
+  })
+
+  it('returns 0 for empty array', async () => {
+    const result = await removeSkills([], makeOptions())
+    expect(mockExeca).not.toHaveBeenCalled()
+    expect(result).toBe(0)
+  })
+
+  it('prints command when verbose is true', async () => {
+    await removeSkills(['skill-a'], makeOptions({ verbose: true }))
+    expect(mockReporter.printCommand).toHaveBeenCalled()
+  })
+
+  it('does NOT print command when verbose is undefined', async () => {
+    await removeSkills(['skill-a'], makeOptions())
+    expect(mockReporter.printCommand).not.toHaveBeenCalled()
   })
 })

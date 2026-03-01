@@ -20,34 +20,37 @@ describe('reporter', () => {
   })
 
   describe('printSummary', () => {
-    it('outputs "X installed, Y unchanged"', () => {
-      reporter.printSummary(2, 3)
+    it('outputs "X installed, Y removed, Z unchanged"', () => {
+      reporter.printSummary(2, 0, 3)
       expect(logSpy).toHaveBeenCalledOnce()
       const output = logSpy.mock.calls[0][0] as string
       expect(output).toContain('2 installed')
+      expect(output).toContain('0 removed')
       expect(output).toContain('3 unchanged')
     })
 
     it('works with zero counts', () => {
-      reporter.printSummary(0, 0)
+      reporter.printSummary(0, 0, 0)
       const output = logSpy.mock.calls[0][0] as string
       expect(output).toContain('0 installed')
+      expect(output).toContain('0 removed')
       expect(output).toContain('0 unchanged')
     })
   })
 
   describe('printDryRunSummary', () => {
-    it('outputs "X to install, Y unchanged" with (dry run) suffix', () => {
-      reporter.printDryRunSummary(2, 3)
+    it('outputs "X to install, Y to remove, Z unchanged" with (dry run) suffix', () => {
+      reporter.printDryRunSummary(2, 0, 3)
       expect(logSpy).toHaveBeenCalledOnce()
       const output = logSpy.mock.calls[0][0] as string
       expect(output).toContain('2 to install')
+      expect(output).toContain('0 to remove')
       expect(output).toContain('3 unchanged')
       expect(output).toContain('dry run')
     })
 
     it('works with zero counts', () => {
-      reporter.printDryRunSummary(0, 5)
+      reporter.printDryRunSummary(0, 0, 5)
       const output = logSpy.mock.calls[0][0] as string
       expect(output).toContain('0 to install')
       expect(output).toContain('5 unchanged')
@@ -144,6 +147,94 @@ describe('reporter', () => {
       expect(errorSpy).toHaveBeenCalledOnce()
       const output = errorSpy.mock.calls[0][0] as string
       expect(output).toContain('/path/to/lock.json')
+    })
+  })
+
+  describe('printOrphans', () => {
+    it('outputs each skill name', () => {
+      reporter.printOrphans(['skill-a', 'skill-b'])
+      // Header + 2 skill lines = at least 3 calls
+      expect(logSpy.mock.calls.length).toBeGreaterThanOrEqual(3)
+      const allOutput = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+      expect(allOutput).toContain('skill-a')
+      expect(allOutput).toContain('skill-b')
+    })
+  })
+
+  describe('printRemoving', () => {
+    it('outputs skill name with removing indicator', () => {
+      reporter.printRemoving('git-helpers')
+      expect(logSpy).toHaveBeenCalledOnce()
+      const output = logSpy.mock.calls[0][0] as string
+      expect(output).toContain('git-helpers')
+      expect(output).toContain('removing')
+    })
+  })
+
+  describe('printRemoved', () => {
+    it('outputs skill name', () => {
+      reporter.printRemoved('git-helpers')
+      expect(logSpy).toHaveBeenCalledOnce()
+      const output = logSpy.mock.calls[0][0] as string
+      expect(output).toContain('git-helpers')
+      expect(output).toContain('removed')
+    })
+  })
+
+  describe('warnRemoveFailed', () => {
+    it('outputs to stderr with skill name and reason', () => {
+      reporter.warnRemoveFailed('git-helpers', 'exit code 1')
+      expect(errorSpy).toHaveBeenCalledOnce()
+      const output = errorSpy.mock.calls[0][0] as string
+      expect(output).toContain('git-helpers')
+      expect(output).toContain('exit code 1')
+    })
+  })
+
+  describe('warnSkippingOrphans', () => {
+    it('outputs reason', () => {
+      reporter.warnSkippingOrphans('stdin is not a TTY')
+      expect(logSpy).toHaveBeenCalledOnce()
+      const output = logSpy.mock.calls[0][0] as string
+      expect(output).toContain('stdin is not a TTY')
+    })
+  })
+
+  describe('printPreSyncPreview', () => {
+    it('outputs to-add and to-remove sections', () => {
+      reporter.printPreSyncPreview({
+        toAdd: ['owner/repo'],
+        toRemove: ['orphan-skill'],
+        unchanged: ['existing/source'],
+      })
+      const allOutput = logSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n')
+      expect(allOutput).toContain('owner/repo')
+      expect(allOutput).toContain('orphan-skill')
+    })
+
+    it('skips sections when empty', () => {
+      reporter.printPreSyncPreview({ toAdd: [], toRemove: [], unchanged: ['a/b'] })
+      expect(logSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('printSummary with removed count', () => {
+    it('includes removed count in output', () => {
+      reporter.printSummary(2, 1, 3)
+      const output = logSpy.mock.calls[0][0] as string
+      expect(output).toContain('2 installed')
+      expect(output).toContain('1 removed')
+      expect(output).toContain('3 unchanged')
+    })
+  })
+
+  describe('printDryRunSummary with toRemove count', () => {
+    it('includes toRemove count in output', () => {
+      reporter.printDryRunSummary(2, 1, 3)
+      const output = logSpy.mock.calls[0][0] as string
+      expect(output).toContain('2 to install')
+      expect(output).toContain('1 to remove')
+      expect(output).toContain('3 unchanged')
     })
   })
 })

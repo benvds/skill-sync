@@ -77,7 +77,7 @@ program.action(async (options: {
       for (const source of diff.unchanged) {
         reporter.printUnchanged(source)
       }
-      reporter.printSummary(0, diff.unchanged.length)
+      reporter.printSummary(0, 0, diff.unchanged.length)
       process.exit(0)
     }
 
@@ -90,9 +90,9 @@ program.action(async (options: {
 
     // Print summary
     if (options.dryRun) {
-      reporter.printDryRunSummary(diff.toAdd.length, diff.unchanged.length)
+      reporter.printDryRunSummary(diff.toAdd.length, 0, diff.unchanged.length)
     } else {
-      reporter.printSummary(result.installed, result.unchanged)
+      reporter.printSummary(result.installed, 0, result.unchanged)
     }
 
     // Exit with non-zero if some sources failed

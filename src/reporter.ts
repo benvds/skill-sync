@@ -61,19 +61,19 @@ export const reporter = {
 
   /**
    * Print the final summary line after a sync.
-   * Format: "X installed, Y unchanged" (locked output format).
+   * Format: "X installed, Y removed, Z unchanged" (locked output format).
    */
-  printSummary(installed: number, unchanged: number): void {
-    console.log(`\n${pc.bold(`${installed} installed, ${unchanged} unchanged`)}`)
+  printSummary(installed: number, removed: number, unchanged: number): void {
+    console.log(`\n${pc.bold(`${installed} installed, ${removed} removed, ${unchanged} unchanged`)}`)
   },
 
   /**
    * Print the dry-run summary line.
-   * Format: "X to install, Y unchanged (dry run)" (locked output format).
+   * Format: "X to install, Y to remove, Z unchanged (dry run)" (locked output format).
    */
-  printDryRunSummary(toInstall: number, unchanged: number): void {
+  printDryRunSummary(toInstall: number, toRemove: number, unchanged: number): void {
     console.log(
-      `\n${pc.bold(`${toInstall} to install, ${unchanged} unchanged`)} ${pc.dim('(dry run)')}`,
+      `\n${pc.bold(`${toInstall} to install, ${toRemove} to remove, ${unchanged} unchanged`)} ${pc.dim('(dry run)')}`,
     )
   },
 
@@ -106,5 +106,49 @@ export const reporter = {
     console.error(
       pc.yellow(`Warning: lock file at ${path} is corrupt or unreadable. Treating as empty state.`),
     )
+  },
+
+  /** Print orphaned skills list with yellow header */
+  printOrphans(skillNames: string[]): void {
+    console.log(`\n${pc.yellow('Orphaned skills (installed but not in manifest):')}`)
+    for (const name of skillNames) {
+      console.log(`  ${pc.red(SYMBOLS.error)} ${name}`)
+    }
+  },
+
+  /** Print removing indicator */
+  printRemoving(skillName: string): void {
+    console.log(`  ${pc.cyan(SYMBOLS.installing)} removing ${skillName}`)
+  },
+
+  /** Print removed confirmation */
+  printRemoved(skillName: string): void {
+    console.log(`  ${pc.dim(SYMBOLS.present)} removed ${skillName}`)
+  },
+
+  /** Warn when a skill removal fails */
+  warnRemoveFailed(skillName: string, reason: string): void {
+    console.error(`  ${pc.red(SYMBOLS.error)} remove ${skillName}: ${reason}`)
+  },
+
+  /** Warn when orphan removal is being skipped */
+  warnSkippingOrphans(reason: string): void {
+    console.log(`  ${pc.dim(SYMBOLS.pending)} skipping orphan removal: ${reason}`)
+  },
+
+  /** Print pre-sync diff preview showing what will happen */
+  printPreSyncPreview(diff: { toAdd: string[]; toRemove: string[]; unchanged: string[] }): void {
+    if (diff.toAdd.length > 0) {
+      console.log(`\n${pc.cyan('To install:')}`)
+      for (const source of diff.toAdd) {
+        console.log(`  ${pc.cyan(SYMBOLS.installing)} ${source}`)
+      }
+    }
+    if (diff.toRemove.length > 0) {
+      console.log(`\n${pc.yellow('To remove:')}`)
+      for (const name of diff.toRemove) {
+        console.log(`  ${pc.red(SYMBOLS.error)} ${name}`)
+      }
+    }
   },
 }
