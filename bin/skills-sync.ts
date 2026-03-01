@@ -11,12 +11,14 @@
  *   -y/--yes     skip confirmation prompts; pass -y to npx skills subcommands
  *   --verbose    show the exact npx skills commands being executed
  *   --agent      target a specific agent for all installs and removals
+ *   --check      exit 0 if in sync, exit 1 if out of sync (CI gate)
  *   -V/--version version flag (handled by commander)
  *   -h/--help    help flag (handled by commander)
  */
 
 import { Command } from 'commander'
 import { createRequire } from 'module'
+import pc from 'picocolors'
 import { confirm } from '@inquirer/prompts'
 import { readManifest } from '../src/manifest.js'
 import { readGlobalState, readLocalState } from '../src/state.js'
@@ -46,6 +48,7 @@ program
   .option('-y, --yes', 'skip confirmation prompts; pass -y to npx skills subcommands')
   .option('--verbose', 'show the exact npx skills commands being executed')
   .option('--agent <agent>', 'target a specific agent for all installs and removals')
+  .option('--check', 'exit with code 1 if skills are out of sync (CI gate)')
 
 program.action(async (options: {
   global?: boolean
@@ -56,6 +59,7 @@ program.action(async (options: {
   yes?: boolean
   verbose?: boolean
   agent?: string
+  check?: boolean
 }) => {
   try {
     // FLAG-01: --global and --local are mutually exclusive
@@ -63,6 +67,15 @@ program.action(async (options: {
       reporter.printError(
         '--global and --local are mutually exclusive',
         'Use --global for global scope or omit for local scope (default)',
+      )
+      process.exit(1)
+    }
+
+    // --check and --dry-run are mutually exclusive (both read-only, redundant)
+    if (options.check && options.dryRun) {
+      reporter.printError(
+        '--check and --dry-run are mutually exclusive',
+        '--check already performs a read-only comparison',
       )
       process.exit(1)
     }
@@ -78,7 +91,7 @@ program.action(async (options: {
       process.exit(0)
     }
 
-    // Build SyncOptions with all Phase 2 fields
+    // Build SyncOptions with all flags
     const syncOptions: SyncOptions = {
       scope,
       dryRun: options.dryRun ?? false,
@@ -86,12 +99,25 @@ program.action(async (options: {
       yes: options.yes ?? false,
       verbose: options.verbose ?? false,
       agent: options.agent,
+      check: options.check ?? false,
     }
 
     // Sync pipeline
     const manifest = await readManifest(options.config, scope)
     const state = scope === 'global' ? await readGlobalState() : await readLocalState()
     const diff = computeDiff(manifest, state)
+
+    // FLAG-06: --check CI gate — exit 0 (in sync) or 1 (out of sync)
+    if (options.check) {
+      const outOfSync = diff.toAdd.length > 0 || diff.toRemove.length > 0
+      if (outOfSync) {
+        reporter.printPreSyncPreview(diff)
+        reporter.printError('Skills are out of sync', 'Run `npx skills-sync` to fix')
+        process.exit(1)
+      }
+      console.log(pc.green('\u2713 Skills in sync'))
+      process.exit(0)
+    }
 
     // Nothing to do: everything already installed AND no orphans
     if (diff.toAdd.length === 0 && diff.toRemove.length === 0 && !options.dryRun) {
