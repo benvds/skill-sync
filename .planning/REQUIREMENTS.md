@@ -18,29 +18,29 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **STATE-01**: Tool reads Vercel's `~/.agents/.skill-lock.json` for global-scope installed skills with schema version validation
 - [x] **STATE-02**: Tool scans `.agents/skills/` and `.claude/skills/` filesystem for project-scope installed skills
-- [ ] **STATE-03**: Tool reads `.skills-sync-sources.json` for project-scope source attribution (orphan detection)
+- [x] **STATE-03**: Tool reads `.skills-sync-sources.json` for project-scope source attribution (orphan detection)
 
 ### Sync
 
 - [x] **SYNC-01**: Tool computes diff: missing sources (in manifest, not installed), orphaned skills (installed, not in manifest), present (in both)
 - [x] **SYNC-02**: Tool installs missing skills by shelling out to `npx skills add <source> --yes` with appropriate scope flags
-- [ ] **SYNC-03**: Tool detects orphaned skills and prompts user for removal (or auto-removes with `--yes`)
-- [ ] **SYNC-04**: Tool removes orphaned skills by shelling out to `npx skills remove <name> --yes`
-- [ ] **SYNC-05**: Tool writes `.skills-sync-sources.json` after successful project-scope installs for source attribution
+- [x] **SYNC-03**: Tool detects orphaned skills and prompts user for removal (or auto-removes with `--yes`)
+- [x] **SYNC-04**: Tool removes orphaned skills by shelling out to `npx skills remove <name> --yes`
+- [x] **SYNC-05**: Tool writes `.skills-sync-sources.json` after successful project-scope installs for source attribution
 
 ### CLI Flags
 
 - [x] **FLAG-01**: `--global` and `--local` flags are mutually exclusive; default is `--local`
 - [x] **FLAG-02**: `--dry-run` shows planned changes without executing
-- [ ] **FLAG-03**: `--yes` skips confirmation prompts and passes `-y` to `npx skills` subcommands
-- [ ] **FLAG-04**: `--verbose` shows the exact `npx skills` commands being executed
-- [ ] **FLAG-05**: `--agent <AGENT>` passes `--agent` to `npx skills add` commands
+- [x] **FLAG-03**: `--yes` skips confirmation prompts and passes `-y` to `npx skills` subcommands
+- [x] **FLAG-04**: `--verbose` shows the exact `npx skills` commands being executed
+- [x] **FLAG-05**: `--agent <AGENT>` passes `--agent` to `npx skills add` commands
 - [ ] **FLAG-06**: `--check` exits with code 1 if local state is out of sync with manifest (CI gate)
 
 ### Output
 
 - [x] **OUTP-01**: Tool prints colored summary: X installed, Y removed, Z unchanged
-- [ ] **OUTP-02**: Tool shows pre-sync diff preview with confirmation prompt (unless `--yes`)
+- [x] **OUTP-02**: Tool shows pre-sync diff preview with confirmation prompt (unless `--yes`)
 - [x] **OUTP-03**: Error messages include remediation hints (missing manifest → `--init`, invalid TOML → line/column, `npx skills` unavailable → install hint)
 
 ### Distribution
@@ -85,20 +85,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MNFST-04 | Phase 1 | Complete |
 | STATE-01 | Phase 1 | Complete |
 | STATE-02 | Phase 1 | Complete |
-| STATE-03 | Phase 2 | Pending |
+| STATE-03 | Phase 2 | Complete |
 | SYNC-01 | Phase 1 | Complete |
 | SYNC-02 | Phase 1 | Complete |
-| SYNC-03 | Phase 2 | Pending |
-| SYNC-04 | Phase 2 | Pending |
-| SYNC-05 | Phase 2 | Pending |
+| SYNC-03 | Phase 2 | Complete |
+| SYNC-04 | Phase 2 | Complete |
+| SYNC-05 | Phase 2 | Complete |
 | FLAG-01 | Phase 1 | Complete |
 | FLAG-02 | Phase 1 | Complete |
-| FLAG-03 | Phase 2 | Pending |
-| FLAG-04 | Phase 2 | Pending |
-| FLAG-05 | Phase 2 | Pending |
+| FLAG-03 | Phase 2 | Complete |
+| FLAG-04 | Phase 2 | Complete |
+| FLAG-05 | Phase 2 | Complete |
 | FLAG-06 | Phase 3 | Pending |
 | OUTP-01 | Phase 1 | Complete |
-| OUTP-02 | Phase 2 | Pending |
+| OUTP-02 | Phase 2 | Complete |
 | OUTP-03 | Phase 1 | Complete |
 | DIST-01 | Phase 3 | Pending |
 

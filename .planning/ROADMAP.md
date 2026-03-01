@@ -13,7 +13,7 @@ Three phases that build the declarative skill management CLI. Phase 1 delivers a
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Sync Pipeline** - Parse manifest, read global state, diff, install, report (completed 2026-03-01)
-- [ ] **Phase 2: Orphan Detection + Project Scope** - Remove orphans, track local installs, CI-ready flags
+- [x] **Phase 2: Orphan Detection + Project Scope** - Remove orphans, track local installs, CI-ready flags (completed 2026-03-01)
 - [ ] **Phase 3: CI Gate + Distribution** - `--check` exit code, npm publish
 
 ## Phase Details
@@ -72,5 +72,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Sync Pipeline | 4/4 | Complete   | 2026-03-01 |
-| 2. Orphan Detection + Project Scope | 4/4 | In Progress | - |
+| 2. Orphan Detection + Project Scope | 4/4 | Complete | 2026-03-01 |
 | 3. CI Gate + Distribution | 0/TBD | Not started | - |
