@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 2 of 3 (Orphan Detection + Project Scope)
-Plan: 1 of 4 in current phase
-Status: Plan 02-01 complete
-Last activity: 2026-03-01 — Plan 02-01 complete: extended types for Phase 2 flags and created sources.ts module
+Plan: 3 of 4 in current phase
+Status: Plans 02-01, 02-02, 02-03 complete
+Last activity: 2026-03-01 — Plans 02-02/02-03 complete: orphan detection in state/diff, removal in executor, reporter methods
 
-Progress: [██████░░░░] 58%
+Progress: [████████░░] 75%
 
 ## Performance Metrics
 
@@ -76,6 +76,12 @@ Recent decisions affecting current work:
 - [02-01]: writeSourcesFile normalizes keys via normalizeSource from state.ts — single canonical normalizer
 - [02-01]: detectInstalledSkills uses Set for deduplication (skills in both .agents/skills and .claude/skills)
 - [02-01]: readSourcesFile returns null (not throws) for all error cases — consistent with graceful fallback pattern
+- [02-02]: readLocalState checks readSourcesFile first, falls back to filesystem scan with __local__ key
+- [02-02]: computeDiff guards orphan detection with __local__ check — prevents false orphan detection on first-ever run
+- [02-02]: toRemove contains skill directory NAMES (not source URLs) — matches npx skills remove argument format
+- [02-03]: removeSkills batches all skill names in single npx skills remove call for efficiency
+- [02-03]: printCommand gated by if (options.verbose) — changes Phase 1 always-on to Phase 2 opt-in
+- [02-03]: printSummary signature changed to (installed, removed, unchanged)
 
 ### Pending Todos
 
@@ -91,5 +97,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 02-01-PLAN.md — sources.ts module with read/write/detect + extended types
+Stopped at: Completed 02-03-PLAN.md — orphan detection in state/diff, removal in executor, reporter methods
 Resume file: None

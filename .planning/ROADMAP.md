@@ -46,12 +46,12 @@ Plans:
   3. User can run `npx skills-sync --verbose` to see the exact `npx skills` commands being executed
   4. User can pass `--agent <AGENT>` to target a specific agent for all installs
   5. After a local-scope sync, `.skills-sync-sources.json` reflects the installed sources so orphan detection works on the next run
-**Plans**: 1/4 plans complete
+**Plans**: 3/4 plans complete
 
 Plans:
 - [x] 02-01-PLAN.md — Extend types for Phase 2 flags and create sources.ts module
-- [ ] 02-02-PLAN.md — Extend readLocalState and computeDiff for orphan detection
-- [ ] 02-03-PLAN.md — Add removeSkills to executor, verbose gating, agent flag, reporter methods
+- [x] 02-02-PLAN.md — Extend readLocalState and computeDiff for orphan detection
+- [x] 02-03-PLAN.md — Add removeSkills to executor, verbose gating, agent flag, reporter methods
 - [ ] 02-04-PLAN.md — Wire CLI with --yes, --verbose, --agent, orphan prompt, source write-back
 
 ### Phase 3: CI Gate + Distribution
@@ -72,5 +72,5 @@ Phases execute in numeric order: 1 → 2 → 3
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Sync Pipeline | 4/4 | Complete   | 2026-03-01 |
-| 2. Orphan Detection + Project Scope | 1/4 | In Progress | - |
+| 2. Orphan Detection + Project Scope | 3/4 | In Progress | - |
 | 3. CI Gate + Distribution | 0/TBD | Not started | - |
