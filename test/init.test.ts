@@ -55,7 +55,9 @@ describe('writeManifestTemplate', () => {
   let originalCwd: string
 
   beforeEach(async () => {
-    tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'skills-sync-init-test-'))
+    const rawTempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'skills-sync-init-test-'))
+    // Resolve symlinks so that process.cwd() and tempDir match on macOS (/private/var vs /var)
+    tempDir = await fs.realpath(rawTempDir)
     originalCwd = process.cwd()
     process.chdir(tempDir)
   })
