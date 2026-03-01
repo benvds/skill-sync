@@ -1,0 +1,38 @@
+{
+  "name": "skills-sync",
+  "version": "0.1.0",
+  "description": "Declarative, reproducible skill management: commit one file, run one command",
+  "type": "module",
+  "bin": {
+    "skills-sync": "./dist/skills-sync.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "skills",
+    "claude",
+    "agents",
+    "cli"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "commander": "^14.0.3",
+    "execa": "^9.6.1",
+    "picocolors": "^1.1.1",
+    "smol-toml": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
