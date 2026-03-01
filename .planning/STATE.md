@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 2 of 3 (Orphan Detection + Project Scope)
-Plan: 3 of 4 in current phase
-Status: Plans 02-01, 02-02, 02-03 complete
-Last activity: 2026-03-01 — Plans 02-02/02-03 complete: orphan detection in state/diff, removal in executor, reporter methods
+Plan: 4 of 4 in current phase — COMPLETE
+Status: Phase 2 complete
+Last activity: 2026-03-01 — Plan 02-04 complete: CLI wired with all Phase 2 features end-to-end
 
-Progress: [████████░░] 75%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -82,6 +82,10 @@ Recent decisions affecting current work:
 - [02-03]: removeSkills batches all skill names in single npx skills remove call for efficiency
 - [02-03]: printCommand gated by if (options.verbose) — changes Phase 1 always-on to Phase 2 opt-in
 - [02-03]: printSummary signature changed to (installed, removed, unchanged)
+- [02-04]: --yes check fires BEFORE confirm() call — primary correctness for FLAG-03
+- [02-04]: Non-TTY stdin skips orphan prompt with warning instead of throwing ExitPromptError
+- [02-04]: Source attribution write-back skipped when nothing changed (installed === 0 && removed === 0)
+- [02-04]: confirm() default is false — orphan removal is opt-in
 
 ### Pending Todos
 
@@ -92,10 +96,10 @@ None.
 - [Phase 1 - RESOLVED]: Lock file internal schema verified and implemented in 01-03: EXPECTED_LOCK_VERSION=3, skills map keyed by skill name with source field
 - [Phase 1 - RESOLVED]: Executor wired with `npx skills add <source> --yes [--global]` — pipeline works end-to-end
 - [Phase 2 - RESOLVED]: `.skills-sync-sources.json` schema designed and implemented in 02-01: { version: 1, sources: Record<string, string[]> }
-- [Phase 2]: Orphan detection and removal in progress (02-02, 02-03, 02-04 remaining)
+- [Phase 2 - RESOLVED]: Orphan detection and removal fully implemented in 02-02 through 02-04
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 02-03-PLAN.md — orphan detection in state/diff, removal in executor, reporter methods
+Stopped at: Completed 02-04-PLAN.md — Phase 2 complete: CLI wired with all features end-to-end
 Resume file: None
