@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Declarative, reproducible skill management: commit one file, run one command, every teammate has the same skills.
-**Current focus:** Phase 1 — Core Sync Pipeline
+**Current focus:** Phase 2 — Orphan Detection + Project Scope
 
 ## Current Position
 
-Phase: 1 of 3 (Core Sync Pipeline)
-Plan: 4 of 4 in current phase — COMPLETE
-Status: Phase 1 complete
-Last activity: 2026-03-01 — Plan 01-04 complete: reporter, executor, and CLI entry point; full pipeline end-to-end
+Phase: 2 of 3 (Orphan Detection + Project Scope)
+Plan: 1 of 4 in current phase
+Status: Plan 02-01 complete
+Last activity: 2026-03-01 — Plan 02-01 complete: extended types for Phase 2 flags and created sources.ts module
 
-Progress: [█████░░░░░] 50%
+Progress: [██████░░░░] 58%
 
 ## Performance Metrics
 
@@ -72,6 +72,10 @@ Recent decisions affecting current work:
 - [01-04]: reporter is an exported singleton object — consistent with picocolors patterns; all console.log/error calls isolated to reporter.ts
 - [01-04]: Shebang removed from bin/skills-sync.ts source — tsup banner adds it; double shebang caused SyntaxError on Node.js 24
 - [01-04]: createRequire(import.meta.url) used to load package.json version in ESM context
+- [02-01]: SOURCES_FILENAME exported as constant for use by other modules
+- [02-01]: writeSourcesFile normalizes keys via normalizeSource from state.ts — single canonical normalizer
+- [02-01]: detectInstalledSkills uses Set for deduplication (skills in both .agents/skills and .claude/skills)
+- [02-01]: readSourcesFile returns null (not throws) for all error cases — consistent with graceful fallback pattern
 
 ### Pending Todos
 
@@ -81,11 +85,11 @@ None.
 
 - [Phase 1 - RESOLVED]: Lock file internal schema verified and implemented in 01-03: EXPECTED_LOCK_VERSION=3, skills map keyed by skill name with source field
 - [Phase 1 - RESOLVED]: Executor wired with `npx skills add <source> --yes [--global]` — pipeline works end-to-end
-- [Phase 2]: `.skills-sync-sources.json` schema needs explicit design before Phase 2 begins (no upstream reference)
-- [Phase 2]: Orphan detection and --remove flag deferred to Phase 2
+- [Phase 2 - RESOLVED]: `.skills-sync-sources.json` schema designed and implemented in 02-01: { version: 1, sources: Record<string, string[]> }
+- [Phase 2]: Orphan detection and removal in progress (02-02, 02-03, 02-04 remaining)
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 01-04-PLAN.md — Phase 1 complete: reporter, executor, CLI entry point; full pipeline working end-to-end
+Stopped at: Completed 02-01-PLAN.md — sources.ts module with read/write/detect + extended types
 Resume file: None
