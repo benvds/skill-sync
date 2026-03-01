@@ -141,3 +141,23 @@ None - no external service configuration required.
 ---
 *Phase: 01-core-sync-pipeline*
 *Completed: 2026-03-01*
+
+## Self-Check: PASSED
+
+All files verified present:
+- src/manifest.ts: FOUND
+- src/init.ts: FOUND
+- test/manifest.test.ts: FOUND
+- test/init.test.ts: FOUND
+- test/fixtures/valid.skills.toml: FOUND
+- test/fixtures/invalid.skills.toml: FOUND
+- test/fixtures/empty-repos.skills.toml: FOUND
+- test/fixtures/duplicate-repos.skills.toml: FOUND
+- .planning/phases/01-core-sync-pipeline/01-02-SUMMARY.md: FOUND
+
+All commits verified:
+- 799e665 (test RED - manifest): FOUND
+- e4bf0b6 (feat GREEN - manifest): FOUND
+- b6c2263 (test RED - init): FOUND
+- afd01c0 (feat GREEN - init): FOUND
+- 4474855 (docs metadata): FOUND
