@@ -28,6 +28,8 @@ export function computeDiff(manifest: Manifest, state: InstalledState): Diff {
     installedKeys.add(normalizeSource(key))
   }
 
+  const manifestKeys = new Set(manifest.sources.map(normalizeSource))
+
   const toAdd: string[] = []
   const unchanged: string[] = []
 
@@ -40,9 +42,16 @@ export function computeDiff(manifest: Manifest, state: InstalledState): Diff {
     }
   }
 
-  return {
-    toAdd,
-    unchanged,
-    toRemove: [], // Phase 2: orphan detection not implemented yet
+  // Orphan detection: skill names from sources not in manifest
+  // Skip if state uses __local__ (no source attribution available)
+  const toRemove: string[] = []
+  if (!state.bySource.has('__local__')) {
+    for (const [source, skillNames] of state.bySource) {
+      if (!manifestKeys.has(normalizeSource(source))) {
+        toRemove.push(...skillNames)
+      }
+    }
   }
+
+  return { toAdd, unchanged, toRemove }
 }

@@ -11,6 +11,11 @@ function makeState(...sources: string[]): InstalledState {
   return { bySource }
 }
 
+// Helper to build InstalledState with explicit skill names per source
+function makeStateWithSkills(...entries: [string, string[]][]): InstalledState {
+  return { bySource: new Map(entries) }
+}
+
 describe('normalizeSource', () => {
   it('lowercases the source string', () => {
     expect(normalizeSource('Owner/Repo')).toBe('owner/repo')
@@ -71,7 +76,7 @@ describe('computeDiff', () => {
     expect(diff.toRemove).toHaveLength(0)
   })
 
-  it('returns empty result for empty manifest regardless of state', () => {
+  it('returns orphans from state when manifest is empty and state has real source keys', () => {
     const manifest: Manifest = { sources: [] }
     const state = makeState('a/b', 'c/d')
 
@@ -79,7 +84,9 @@ describe('computeDiff', () => {
 
     expect(diff.toAdd).toHaveLength(0)
     expect(diff.unchanged).toHaveLength(0)
-    expect(diff.toRemove).toHaveLength(0)
+    // With real source keys (not __local__), all state skills are orphans
+    expect(diff.toRemove).toHaveLength(2)
+    expect(diff.toRemove).toContain('some-skill')
   })
 
   it('performs case-insensitive source comparison', () => {
@@ -124,10 +131,58 @@ describe('computeDiff', () => {
     expect(diff.unchanged).not.toContain('owner/repo')
   })
 
-  it('toRemove is always empty in Phase 1', () => {
+  it('returns orphaned skill names in toRemove for sources not in manifest', () => {
+    const manifest: Manifest = { sources: ['a/b'] }
+    const state = makeStateWithSkills(['a/b', ['skill-a']], ['c/d', ['orphan-1', 'orphan-2']])
+
+    const diff = computeDiff(manifest, state)
+
+    expect(diff.toRemove).toContain('orphan-1')
+    expect(diff.toRemove).toContain('orphan-2')
+    expect(diff.toRemove).not.toContain('c/d')
+    expect(diff.toRemove).toHaveLength(2)
+  })
+
+  it('returns empty toRemove when state uses __local__ key', () => {
     const manifest: Manifest = { sources: [] }
-    // Even with state having sources, toRemove must stay empty
-    const state = makeState('a/b', 'c/d')
+    const state = makeStateWithSkills(['__local__', ['skill-a', 'skill-b']])
+
+    const diff = computeDiff(manifest, state)
+
+    expect(diff.toRemove).toHaveLength(0)
+  })
+
+  it('returns empty toRemove when all installed sources are in manifest', () => {
+    const manifest: Manifest = { sources: ['a/b', 'c/d'] }
+    const state = makeStateWithSkills(['a/b', ['skill-a']], ['c/d', ['skill-b']])
+
+    const diff = computeDiff(manifest, state)
+
+    expect(diff.toRemove).toHaveLength(0)
+  })
+
+  it('orphan detection uses case-insensitive source comparison', () => {
+    const manifest: Manifest = { sources: ['Owner/Repo'] }
+    const state = makeStateWithSkills(['owner/repo', ['skill-a']], ['other/repo', ['orphan']])
+
+    const diff = computeDiff(manifest, state)
+
+    expect(diff.toRemove).toContain('orphan')
+    expect(diff.toRemove).toHaveLength(1)
+  })
+
+  it('returns empty toRemove when state is empty', () => {
+    const manifest: Manifest = { sources: ['a/b'] }
+    const state = makeState()
+
+    const diff = computeDiff(manifest, state)
+
+    expect(diff.toRemove).toHaveLength(0)
+  })
+
+  it('returns empty toRemove for empty manifest with __local__ state', () => {
+    const manifest: Manifest = { sources: [] }
+    const state = makeStateWithSkills(['__local__', ['skill-a']])
 
     const diff = computeDiff(manifest, state)
 
