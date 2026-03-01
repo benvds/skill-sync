@@ -54,7 +54,8 @@ describe('executeSync', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     // Default: execa resolves successfully
-    mockExeca.mockResolvedValue({} as ReturnType<typeof execa>)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    mockExeca.mockResolvedValue(undefined as any)
   })
 
   afterEach(() => {
@@ -121,9 +122,10 @@ describe('executeSync', () => {
   describe('failure handling', () => {
     it('continues to next source when one fails', async () => {
       const { ExecaError } = await import('execa')
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       mockExeca
-        .mockRejectedValueOnce(new ExecaError('Command failed'))
-        .mockResolvedValueOnce({} as ReturnType<typeof execa>)
+        .mockRejectedValueOnce(new (ExecaError as any)('Command failed'))
+        .mockResolvedValueOnce(undefined as any)
 
       const diff = makeDiff(['failing/source', 'working/source'])
       const result = await executeSync(diff, makeOptions())
@@ -136,7 +138,8 @@ describe('executeSync', () => {
 
     it('calls warnSourceFailed when a source fails', async () => {
       const { ExecaError } = await import('execa')
-      mockExeca.mockRejectedValueOnce(new ExecaError('exit code 1'))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockExeca.mockRejectedValueOnce(new (ExecaError as any)('exit code 1'))
 
       const diff = makeDiff(['failing/source'])
       await executeSync(diff, makeOptions())
@@ -150,7 +153,8 @@ describe('executeSync', () => {
 
     it('does not call printSuccess when source fails', async () => {
       const { ExecaError } = await import('execa')
-      mockExeca.mockRejectedValueOnce(new ExecaError('failed'))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      mockExeca.mockRejectedValueOnce(new (ExecaError as any)('failed'))
 
       const diff = makeDiff(['failing/source'])
       await executeSync(diff, makeOptions())
