@@ -9,10 +9,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Manifest
 
-- [ ] **MNFST-01**: User can parse `.skills.toml` with clear error messages including line/column on syntax errors
-- [ ] **MNFST-02**: User can run `--init` to scaffold a sample `.skills.toml` with documented comments and usage instructions
-- [ ] **MNFST-03**: User can specify custom manifest path via `--config <PATH>`
-- [ ] **MNFST-04**: Tool discovers manifest in order: explicit `--config`, `.skills.toml` in CWD (for `--local`), `~/.config/skills-sync/skills.toml` (for `--global`)
+- [x] **MNFST-01**: User can parse `.skills.toml` with clear error messages including line/column on syntax errors
+- [x] **MNFST-02**: User can run `--init` to scaffold a sample `.skills.toml` with documented comments and usage instructions
+- [x] **MNFST-03**: User can specify custom manifest path via `--config <PATH>`
+- [x] **MNFST-04**: Tool discovers manifest in order: explicit `--config`, `.skills.toml` in CWD (for `--local`), `~/.config/skills-sync/skills.toml` (for `--global`)
 
 ### State Reading
 
@@ -79,10 +79,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MNFST-01 | Phase 1 | Pending |
-| MNFST-02 | Phase 1 | Pending |
-| MNFST-03 | Phase 1 | Pending |
-| MNFST-04 | Phase 1 | Pending |
+| MNFST-01 | Phase 1 | Complete |
+| MNFST-02 | Phase 1 | Complete |
+| MNFST-03 | Phase 1 | Complete |
+| MNFST-04 | Phase 1 | Complete |
 | STATE-01 | Phase 1 | Pending |
 | STATE-02 | Phase 1 | Pending |
 | STATE-03 | Phase 2 | Pending |

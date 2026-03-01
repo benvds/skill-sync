@@ -1,3 +1,16 @@
+---
+gsd_state_version: 1.0
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+last_updated: "2026-03-01T11:42:42.660Z"
+progress:
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 2
+---
+
 # Project State
 
 ## Project Reference
@@ -10,27 +23,27 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 3 (Core Sync Pipeline)
-Plan: 1 of TBD in current phase
+Plan: 2 of TBD in current phase
 Status: In progress
-Last activity: 2026-03-01 — Plan 01-01 complete: TypeScript scaffold + types + error classes
+Last activity: 2026-03-01 — Plan 01-02 complete: manifest parser + init template
 
-Progress: [█░░░░░░░░░] 10%
+Progress: [██░░░░░░░░] 20%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
-- Average duration: 3 min
-- Total execution time: 0.05 hours
+- Total plans completed: 2
+- Average duration: 2.5 min
+- Total execution time: 0.08 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-core-sync-pipeline | 1 | 3 min | 3 min |
+| 01-core-sync-pipeline | 2 | 5 min | 2.5 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min)
+- Last 5 plans: 01-01 (3 min), 01-02 (2 min)
 - Trend: -
 
 *Updated after each plan completion*
@@ -49,6 +62,9 @@ Recent decisions affecting current work:
 - [01-01]: ESM-only project (type: module) with Node16 module resolution — aligns with execa 9.x and modern Node.js
 - [01-01]: Object.setPrototypeOf in SkillsSyncError constructor ensures reliable instanceof checks across transpiled ESM
 - [01-01]: All error classes carry a hint string shown to users below the error message (OUTP-03)
+- [Phase 01-02]: parseManifest exported as public function for direct unit testing without filesystem I/O
+- [Phase 01-02]: Sources trimmed but NOT normalized in manifest.ts — case normalization is diff.ts responsibility
+- [Phase 01-02]: writeManifestTemplate refuses to overwrite existing file with descriptive error
 
 ### Pending Todos
 
@@ -63,5 +79,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 01-01-PLAN.md — scaffold + types + errors done; ready for 01-02 (manifest parser)
+Stopped at: Completed 01-02-PLAN.md — manifest parser + init template done; ready for 01-03 (state reader)
 Resume file: None

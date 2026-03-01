@@ -28,7 +28,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can run `npx skills-sync` and missing skills from the manifest get installed via `npx skills add`
   4. User can run `npx skills-sync --dry-run` to see what would be installed without executing
   5. User sees colored summary output: "X installed, Y unchanged" after sync completes
-**Plans:** 1/4 plans executed
+**Plans:** 2/4 plans executed
 
 Plans:
 - [ ] 01-01-PLAN.md — Scaffold TypeScript project + define shared types and error classes
@@ -65,6 +65,6 @@ Phases execute in numeric order: 1 → 2 → 3
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Sync Pipeline | 1/4 | In Progress|  |
+| 1. Core Sync Pipeline | 2/4 | In Progress|  |
 | 2. Orphan Detection + Project Scope | 0/TBD | Not started | - |
 | 3. CI Gate + Distribution | 0/TBD | Not started | - |
