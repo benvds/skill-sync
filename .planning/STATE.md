@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 3 of 3 (CI Gate + Distribution)
-Plan: 1 of 2 in current phase
-Status: Executing Phase 3
-Last activity: 2026-03-01 — Plan 03-01 complete: --check CI gate flag with exit 0/1
+Plan: 2 of 2 in current phase — COMPLETE
+Status: Phase 3 complete
+Last activity: 2026-03-01 — Plan 03-02 complete: npm distribution prep with README
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -88,6 +88,8 @@ Recent decisions affecting current work:
 - [02-04]: confirm() default is false — orphan removal is opt-in
 - [03-01]: --check early-exit placed after computeDiff() and before executor/prompt logic — pure read-only
 - [03-01]: --check and --dry-run mutually exclusive — both are read-only, redundant together
+- [03-02]: files: ["dist"] whitelist in package.json — explicit, prevents leaking source/tests/planning
+- [03-02]: prepublishOnly: "tsup" ensures build before npm publish
 
 ### Pending Todos
 
@@ -103,5 +105,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 03-01-PLAN.md — --check CI gate flag with exit 0/1
+Stopped at: Completed 03-02-PLAN.md — Phase 3 complete: CI gate and npm distribution ready
 Resume file: None

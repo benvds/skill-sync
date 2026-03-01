@@ -45,7 +45,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Distribution
 
-- [ ] **DIST-01**: Tool is distributed as npm package runnable via `npx skills-sync`
+- [x] **DIST-01**: Tool is distributed as npm package runnable via `npx skills-sync`
 
 ## v2 Requirements
 
@@ -100,7 +100,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OUTP-01 | Phase 1 | Complete |
 | OUTP-02 | Phase 2 | Complete |
 | OUTP-03 | Phase 1 | Complete |
-| DIST-01 | Phase 3 | Pending |
+| DIST-01 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 22 total
