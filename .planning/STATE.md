@@ -18,16 +18,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-01)
 
 **Core value:** Declarative, reproducible skill management: commit one file, run one command, every teammate has the same skills.
-**Current focus:** Phase 2 — Orphan Detection + Project Scope
+**Current focus:** Phase 3 — CI Gate + Distribution
 
 ## Current Position
 
-Phase: 2 of 3 (Orphan Detection + Project Scope)
-Plan: 4 of 4 in current phase — COMPLETE
-Status: Phase 2 complete
-Last activity: 2026-03-01 — Plan 02-04 complete: CLI wired with all Phase 2 features end-to-end
+Phase: 3 of 3 (CI Gate + Distribution)
+Plan: 1 of 2 in current phase
+Status: Executing Phase 3
+Last activity: 2026-03-01 — Plan 03-01 complete: --check CI gate flag with exit 0/1
 
-Progress: [████████░░] 83%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -86,6 +86,8 @@ Recent decisions affecting current work:
 - [02-04]: Non-TTY stdin skips orphan prompt with warning instead of throwing ExitPromptError
 - [02-04]: Source attribution write-back skipped when nothing changed (installed === 0 && removed === 0)
 - [02-04]: confirm() default is false — orphan removal is opt-in
+- [03-01]: --check early-exit placed after computeDiff() and before executor/prompt logic — pure read-only
+- [03-01]: --check and --dry-run mutually exclusive — both are read-only, redundant together
 
 ### Pending Todos
 
@@ -101,5 +103,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 02-04-PLAN.md — Phase 2 complete: CLI wired with all features end-to-end
+Stopped at: Completed 03-01-PLAN.md — --check CI gate flag with exit 0/1
 Resume file: None

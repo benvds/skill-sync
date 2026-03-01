@@ -35,7 +35,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **FLAG-03**: `--yes` skips confirmation prompts and passes `-y` to `npx skills` subcommands
 - [x] **FLAG-04**: `--verbose` shows the exact `npx skills` commands being executed
 - [x] **FLAG-05**: `--agent <AGENT>` passes `--agent` to `npx skills add` commands
-- [ ] **FLAG-06**: `--check` exits with code 1 if local state is out of sync with manifest (CI gate)
+- [x] **FLAG-06**: `--check` exits with code 1 if local state is out of sync with manifest (CI gate)
 
 ### Output
 
@@ -96,7 +96,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FLAG-03 | Phase 2 | Complete |
 | FLAG-04 | Phase 2 | Complete |
 | FLAG-05 | Phase 2 | Complete |
-| FLAG-06 | Phase 3 | Pending |
+| FLAG-06 | Phase 3 | Complete |
 | OUTP-01 | Phase 1 | Complete |
 | OUTP-02 | Phase 2 | Complete |
 | OUTP-03 | Phase 1 | Complete |
