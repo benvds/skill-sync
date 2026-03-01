@@ -1,7 +1,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import type { InstalledState } from './types.ts'
+import type { InstalledState } from './types.js'
 
 /** Lock file version this tool understands. Mismatch triggers fallback to empty state. */
 const EXPECTED_LOCK_VERSION = 3

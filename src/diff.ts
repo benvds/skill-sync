@@ -1,4 +1,4 @@
-import type { Manifest, InstalledState, Diff } from './types.ts'
+import type { Manifest, InstalledState, Diff } from './types.js'
 
 /**
  * Normalize a source string for stable comparison.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { computeDiff, normalizeSource } from '../src/diff.ts'
-import type { Manifest, InstalledState } from '../src/types.ts'
+import { computeDiff, normalizeSource } from '../src/diff.js'
+import type { Manifest, InstalledState } from '../src/types.js'
 
 // Helper to build InstalledState from a list of normalized source keys
 function makeState(...sources: string[]): InstalledState {
