@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Sync Pipeline** - Parse manifest, read global state, diff, install, report (completed 2026-03-01)
 - [x] **Phase 2: Orphan Detection + Project Scope** - Remove orphans, track local installs, CI-ready flags (completed 2026-03-01)
-- [ ] **Phase 3: CI Gate + Distribution** - `--check` exit code, npm publish
+- [x] **Phase 3: CI Gate + Distribution** - `--check` exit code, npm publish (completed 2026-03-01)
 
 ## Phase Details
 
@@ -73,4 +73,4 @@ Phases execute in numeric order: 1 → 2 → 3
 |-------|----------------|--------|-----------|
 | 1. Core Sync Pipeline | 4/4 | Complete   | 2026-03-01 |
 | 2. Orphan Detection + Project Scope | 4/4 | Complete | 2026-03-01 |
-| 3. CI Gate + Distribution | 0/TBD | Not started | - |
+| 3. CI Gate + Distribution | 0/TBD | Complete    | 2026-03-01 |
