@@ -23,15 +23,15 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Sync
 
 - [x] **SYNC-01**: Tool computes diff: missing sources (in manifest, not installed), orphaned skills (installed, not in manifest), present (in both)
-- [ ] **SYNC-02**: Tool installs missing skills by shelling out to `npx skills add <source> --yes` with appropriate scope flags
+- [x] **SYNC-02**: Tool installs missing skills by shelling out to `npx skills add <source> --yes` with appropriate scope flags
 - [ ] **SYNC-03**: Tool detects orphaned skills and prompts user for removal (or auto-removes with `--yes`)
 - [ ] **SYNC-04**: Tool removes orphaned skills by shelling out to `npx skills remove <name> --yes`
 - [ ] **SYNC-05**: Tool writes `.skills-sync-sources.json` after successful project-scope installs for source attribution
 
 ### CLI Flags
 
-- [ ] **FLAG-01**: `--global` and `--local` flags are mutually exclusive; default is `--local`
-- [ ] **FLAG-02**: `--dry-run` shows planned changes without executing
+- [x] **FLAG-01**: `--global` and `--local` flags are mutually exclusive; default is `--local`
+- [x] **FLAG-02**: `--dry-run` shows planned changes without executing
 - [ ] **FLAG-03**: `--yes` skips confirmation prompts and passes `-y` to `npx skills` subcommands
 - [ ] **FLAG-04**: `--verbose` shows the exact `npx skills` commands being executed
 - [ ] **FLAG-05**: `--agent <AGENT>` passes `--agent` to `npx skills add` commands
@@ -39,7 +39,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Output
 
-- [ ] **OUTP-01**: Tool prints colored summary: X installed, Y removed, Z unchanged
+- [x] **OUTP-01**: Tool prints colored summary: X installed, Y removed, Z unchanged
 - [ ] **OUTP-02**: Tool shows pre-sync diff preview with confirmation prompt (unless `--yes`)
 - [x] **OUTP-03**: Error messages include remediation hints (missing manifest → `--init`, invalid TOML → line/column, `npx skills` unavailable → install hint)
 
@@ -87,17 +87,17 @@ Which phases cover which requirements. Updated during roadmap creation.
 | STATE-02 | Phase 1 | Complete |
 | STATE-03 | Phase 2 | Pending |
 | SYNC-01 | Phase 1 | Complete |
-| SYNC-02 | Phase 1 | Pending |
+| SYNC-02 | Phase 1 | Complete |
 | SYNC-03 | Phase 2 | Pending |
 | SYNC-04 | Phase 2 | Pending |
 | SYNC-05 | Phase 2 | Pending |
-| FLAG-01 | Phase 1 | Pending |
-| FLAG-02 | Phase 1 | Pending |
+| FLAG-01 | Phase 1 | Complete |
+| FLAG-02 | Phase 1 | Complete |
 | FLAG-03 | Phase 2 | Pending |
 | FLAG-04 | Phase 2 | Pending |
 | FLAG-05 | Phase 2 | Pending |
 | FLAG-06 | Phase 3 | Pending |
-| OUTP-01 | Phase 1 | Pending |
+| OUTP-01 | Phase 1 | Complete |
 | OUTP-02 | Phase 2 | Pending |
 | OUTP-03 | Phase 1 | Complete |
 | DIST-01 | Phase 3 | Pending |

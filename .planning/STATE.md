@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-01T11:42:42.660Z"
+last_updated: "2026-03-01T11:48:45Z"
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -23,28 +23,28 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 ## Current Position
 
 Phase: 1 of 3 (Core Sync Pipeline)
-Plan: 3 of TBD in current phase
-Status: In progress
-Last activity: 2026-03-01 — Plan 01-03 complete: state readers (global lock file + local filesystem) and pure diff computation
+Plan: 4 of 4 in current phase — COMPLETE
+Status: Phase 1 complete
+Last activity: 2026-03-01 — Plan 01-04 complete: reporter, executor, and CLI entry point; full pipeline end-to-end
 
-Progress: [███░░░░░░░] 30%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 2.7 min
-- Total execution time: 0.13 hours
+- Total plans completed: 4
+- Average duration: 2.75 min
+- Total execution time: 0.18 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
-| 01-core-sync-pipeline | 3 | 8 min | 2.7 min |
+| 01-core-sync-pipeline | 4 | 11 min | 2.75 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (3 min), 01-02 (2 min), 01-03 (3 min)
-- Trend: -
+- Last 5 plans: 01-01 (3 min), 01-02 (2 min), 01-03 (3 min), 01-04 (3 min)
+- Trend: consistent 2-3 min per plan
 
 *Updated after each plan completion*
 
@@ -68,6 +68,10 @@ Recent decisions affecting current work:
 - [01-03]: EXPECTED_LOCK_VERSION = 3 in state.ts — version mismatch falls back to empty state with console.error warning
 - [01-03]: All locally detected skills grouped under __local__ source key until Phase 2 adds .skills-sync-sources.json
 - [01-03]: Original source strings preserved in Diff.toAdd and Diff.unchanged — normalizeSource is for comparison only
+- [01-04]: Dry-run boundary is a single check in executor.ts immediately before execa — no dry-run flag threading through other modules
+- [01-04]: reporter is an exported singleton object — consistent with picocolors patterns; all console.log/error calls isolated to reporter.ts
+- [01-04]: Shebang removed from bin/skills-sync.ts source — tsup banner adds it; double shebang caused SyntaxError on Node.js 24
+- [01-04]: createRequire(import.meta.url) used to load package.json version in ESM context
 
 ### Pending Todos
 
@@ -76,11 +80,12 @@ None.
 ### Blockers/Concerns
 
 - [Phase 1 - RESOLVED]: Lock file internal schema verified and implemented in 01-03: EXPECTED_LOCK_VERSION=3, skills map keyed by skill name with source field
+- [Phase 1 - RESOLVED]: Executor wired with `npx skills add <source> --yes [--global]` — pipeline works end-to-end
 - [Phase 2]: `.skills-sync-sources.json` schema needs explicit design before Phase 2 begins (no upstream reference)
-- [Phase 1]: Verify exact flags accepted by `npx skills add/remove` with a real invocation before wiring executor.ts
+- [Phase 2]: Orphan detection and --remove flag deferred to Phase 2
 
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: Completed 01-03-PLAN.md — state readers (global lock + local filesystem) and pure diff done; ready for 01-04 (executor)
+Stopped at: Completed 01-04-PLAN.md — Phase 1 complete: reporter, executor, CLI entry point; full pipeline working end-to-end
 Resume file: None
