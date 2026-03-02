@@ -59,6 +59,18 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     let client = github::GitHubClient::new(token, auth_method)
         .map_err(|e| SkillsSyncError::HttpClient(e.to_string()))?;
 
+    // Resolve target directory: global (~/.claude/skills/) or local (.claude/skills/)
+    let target_dir_buf: std::path::PathBuf = if cli.global {
+        let home = dirs::home_dir().ok_or_else(|| SkillsSyncError::SyncFailed {
+            repo: "--global".to_string(),
+            reason: "cannot resolve home directory for --global target".to_string(),
+        })?;
+        home.join(".claude").join("skills")
+    } else {
+        std::path::PathBuf::from(".claude/skills")
+    };
+    let target_dir = target_dir_buf.as_path();
+
     // Process each repo from manifest
     let mut all_actions: Vec<resolver::SyncAction> = Vec::new();
     let mut failed_repos: Vec<(String, String)> = Vec::new();
@@ -131,7 +143,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         }
 
         // Load local metadata for this repo's skills
-        let local_metadata = load_local_metadata(repo_entry);
+        let local_metadata = load_local_metadata(repo_entry, target_dir);
 
         // Build repo skills for resolver
         let repo_skills = resolver::RepoSkills {
@@ -181,7 +193,6 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     }
 
     // Execute sync plan (handles install, update, remove, orphan detection, and cleanup)
-    let target_dir = std::path::Path::new(".claude/skills");
     sync::execute_sync_plan(
         &all_actions,
         target_dir,
@@ -209,11 +220,11 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
 
 /// Load local metadata for skills from a specific repo.
 ///
-/// Scans .claude/skills/ for existing metadata files and returns
+/// Scans the given target_dir for existing metadata files and returns
 /// those matching the given repo.
-fn load_local_metadata(repo: &str) -> HashMap<String, metadata::SkillMeta> {
+fn load_local_metadata(repo: &str, target_dir: &std::path::Path) -> HashMap<String, metadata::SkillMeta> {
     let mut result = HashMap::new();
-    let skills_dir = std::path::Path::new(".claude/skills");
+    let skills_dir = target_dir;
 
     if !skills_dir.exists() {
         return result;
