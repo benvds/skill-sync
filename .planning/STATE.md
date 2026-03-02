@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-02T10:23:17.000Z"
+last_updated: "2026-03-02T14:30:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 9
-  completed_plans: 9
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 3 of 4 (Sync Engine)
-Plan: 3 of 3 in current phase (COMPLETE)
+Plan: 5 of 5 in current phase (COMPLETE)
 Status: In progress
-Last activity: 2026-03-02 — Completed 03-03: --global flag and conditional target_dir resolution
+Last activity: 2026-03-02 — Completed 03-05: sibling lock file placement for skill metadata
 
 Progress: [██████████] 100%
 
@@ -42,7 +42,7 @@ Progress: [██████████] 100%
 |-------|-------|-------|----------|
 | 01-foundation | 2 | ~24 min | ~12 min |
 | 02-github-api | 4 | ~48 min | ~12 min |
-| 03-sync-engine | 3 | ~26 min | ~9 min |
+| 03-sync-engine | 5 | ~28 min | ~6 min |
 
 **Recent Trend:**
 - Last 5 plans: consistent ~12 min each
@@ -67,6 +67,8 @@ Recent decisions affecting current work:
 - Token cloned before GitHubClient::new() since client takes ownership; clone passed to sync engine
 - Use SyncFailed variant (not new variant) for home_dir() None case to avoid conflicting From<io::Error> impls
 - Resolve target_dir_buf before per-repo loop so load_local_metadata and execute_sync_plan share same resolved path
+- Lock files moved to sibling position at target_dir level (owner--repo.lock alongside owner--repo/) based on UAT feedback
+- execute_remove uses Option<&Path> for lock_path; lock file removal is best-effort
 
 ### Pending Todos
 
@@ -80,5 +82,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-03-PLAN.md — --global flag and conditional target_dir resolution complete
+Stopped at: Completed 03-05-PLAN.md — sibling lock file placement complete
 Resume file: None
