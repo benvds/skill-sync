@@ -69,6 +69,10 @@ Recent decisions affecting current work:
 - Resolve target_dir_buf before per-repo loop so load_local_metadata and execute_sync_plan share same resolved path
 - Lock files moved to sibling position at target_dir level (owner--repo.lock alongside owner--repo/) based on UAT feedback
 - execute_remove uses Option<&Path> for lock_path; lock file removal is best-effort
+- parse_repo_entry splits manifest entries into (owner, repo, Option<subdir>) using splitn(3, '/'); first two segments always owner/repo
+- manifest_repos and branch_map keyed by owner/repo slug (not full manifest path) so orphan detection matches meta.source
+- When manifest specifies subdir, Trees API detect_skills() is bypassed; specified subdir used directly for RemoteSkill
+- skill_dir_name uses subdir.replace('/', "--") to flatten multi-segment subdirs into flat filesystem paths
 
 ### Pending Todos
 
@@ -82,5 +86,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-05-PLAN.md — sibling lock file placement complete
+Stopped at: Completed 03-04-PLAN.md — monorepo subdirectory manifest support complete
 Resume file: None
