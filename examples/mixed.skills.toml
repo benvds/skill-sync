@@ -1,0 +1,33 @@
+# ============================================================================
+# Mixed layout example: combining all three repo formats
+# ============================================================================
+#
+# This manifest demonstrates all three layout types in a single file:
+#
+#   - Single-skill repo: repo with SKILL.md at root (auto-detected)
+#   - Monorepo auto-detect: repo with skill subdirectories (all installed)
+#   - Subdirectory pin: exact path to one skill in a monorepo
+#
+# skills-sync handles all three layouts automatically — just list the repos
+# and it figures out what to install.
+#
+# To use this file:
+#   cp examples/mixed.skills.toml .skills.toml
+#   skills-sync
+#
+# ============================================================================
+
+[skills]
+repos = [
+    # Subdirectory pin — install the skill-creator skill from anthropics/skills
+    "anthropics/skills/skills/skill-creator",
+
+    # Subdirectory pin — install the gh-cli skill from github/awesome-copilot
+    "github/awesome-copilot/skills/gh-cli",
+
+    # Auto-detect monorepo — installs all skill subdirectories found in this repo
+    # "example-org/skill-collection",
+
+    # Single-skill repo — repo with SKILL.md at the root
+    # "owner/single-skill-repo",
+]

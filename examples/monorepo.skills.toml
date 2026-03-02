@@ -1,0 +1,27 @@
+# ============================================================================
+# Monorepo example: auto-detection and subdirectory pinning
+# ============================================================================
+#
+# skills-sync supports two approaches for monorepos (repos with multiple
+# skills in subdirectories):
+#
+# 1. Auto-detect — list owner/repo and skills-sync finds all SKILL.md
+#    subdirectories automatically and installs each as a separate skill.
+#
+# 2. Subdirectory pin — list "owner/repo/path/to/skill" to install exactly
+#    one skill from a monorepo without pulling in all the others.
+#
+# To use this file:
+#   cp examples/monorepo.skills.toml .skills.toml
+#   skills-sync
+#
+# ============================================================================
+
+[skills]
+repos = [
+    # Auto-detect: install all skills found in this monorepo
+    # "example-org/skill-collection",
+
+    # Subdirectory pin: install only the skill-creator skill from anthropics/skills
+    "anthropics/skills/skills/skill-creator",
+]
