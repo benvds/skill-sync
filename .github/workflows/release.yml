@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.platform.name }}
+    runs-on: ${{ matrix.platform.runs-on }}
+    strategy:
+      matrix:
+        platform:
+          - name: macOS ARM64
+            runs-on: macos-latest
+            target: aarch64-apple-darwin
+          - name: Linux x86_64
+            runs-on: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: houseabsolute/actions-rust-cross@v1
+        with:
+          command: build
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: true
+
+      - name: Package binary
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          TARGET="${{ matrix.platform.target }}"
+          BINARY="skills-sync"
+          ARCHIVE="${BINARY}-${VERSION}-${TARGET}.tar.gz"
+          cp "target/${TARGET}/release/${BINARY}" "${BINARY}"
+          tar -czf "${ARCHIVE}" "${BINARY}"
+          echo "ARCHIVE=${ARCHIVE}" >> $GITHUB_ENV
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ env.ARCHIVE }}
