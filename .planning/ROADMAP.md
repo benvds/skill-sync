@@ -64,7 +64,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] 03-05-PLAN.md — Gap closure: move metadata lock files to target dir level as sibling files
 
 ### Phase 4: CLI + UX
-**Goal**: A fully usable CLI with all flags working, color-coded output, progress feedback, and binary distribution via Homebrew and GitHub Releases
+**Goal**: A fully usable CLI with all flags working, color-coded output, progress feedback, and binary distribution via GitHub Releases
 **Depends on**: Phase 3
 **Requirements**: CLI-01, CLI-02, CLI-03, CLI-04, CLI-05, CLI-06
 **Success Criteria** (what must be TRUE):
