@@ -73,7 +73,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `--verbose` shows per-skill SHA comparisons and git command output
   4. `--help` displays all flags and `--version` displays the current binary version
   5. Passing both `--global` and `--local` produces a clear mutual-exclusivity error before any network calls
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 04-01-PLAN.md — CLI flags (--dry-run, --force, --local, --version), mutual exclusivity, dry-run short-circuit with orphan scan, force passthrough
+- [ ] 04-02-PLAN.md — Colored output with owo-colors, verbose SHA enhancements, GitHub Actions release workflow, install script
 
 ## Progress
 
@@ -85,4 +87,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation | 0/TBD | Complete    | 2026-02-28 |
 | 2. GitHub + Resolver | 3/3 | Complete | 2026-02-28 |
 | 3. Sync Engine | 5/5 | Complete   | 2026-03-02 |
-| 4. CLI + UX | 0/TBD | Not started | - |
+| 4. CLI + UX | 0/2 | In progress | - |
