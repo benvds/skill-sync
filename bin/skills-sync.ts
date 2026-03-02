@@ -3,10 +3,10 @@
  * Wires the full pipeline: parse manifest -> read state -> diff -> execute -> report.
  *
  * Commands/flags:
- *   --global     sync to global scope (~/.config/skills-sync/skills.toml)
- *   --local      sync to project scope (default, CWD/.skills.toml)
+ *   --global     sync to global scope (~/.config/skills-sync/skills.json)
+ *   --local      sync to project scope (default, CWD/.skills.json)
  *   --dry-run    show planned changes without executing
- *   --init       create sample .skills.toml and exit
+ *   --init       create sample .skills.json and exit
  *   --config     path to manifest file (overrides discovery)
  *   -y/--yes     skip confirmation prompts; pass -y to npx skills subcommands
  *   --verbose    show the exact npx skills commands being executed
@@ -38,12 +38,12 @@ const program = new Command()
 
 program
   .name('skills-sync')
-  .description('Declarative skill management: commit .skills.toml, run npx skills-sync')
+  .description('Declarative skill management: commit .skills.json, run skills-sync')
   .version(pkg.version, '-V, --version')
-  .option('--global', 'sync to global scope (~/.config/skills-sync/skills.toml)')
-  .option('--local', 'sync to project scope (default: CWD/.skills.toml)')
+  .option('--global', 'sync to global scope (~/.config/skills-sync/skills.json)')
+  .option('--local', 'sync to project scope (default: CWD/.skills.json)')
   .option('--dry-run', 'show planned changes without executing')
-  .option('--init', 'create a sample .skills.toml in current directory')
+  .option('--init', 'create a sample .skills.json in current directory')
   .option('--config <path>', 'path to manifest file (overrides discovery)')
   .option('-y, --yes', 'skip confirmation prompts; pass -y to npx skills subcommands')
   .option('--verbose', 'show the exact npx skills commands being executed')

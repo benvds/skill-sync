@@ -1,5 +1,5 @@
 /**
- * --init command: generate and write a sample .skills.toml template.
+ * --init command: generate and write a sample .skills.json template.
  */
 
 import * as fs from 'node:fs/promises'
@@ -7,48 +7,25 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 
 /**
- * Generate a comprehensive .skills.toml template with documentation comments.
- * Template includes: usage instructions, all supported source formats, and empty repos array.
+ * Generate a .skills.json template.
+ * Template includes an empty repos array ready for the user to populate.
  */
 export function generateManifestTemplate(): string {
-  return `# ============================================================================
-# .skills.toml - Declarative skill manifest
-# ============================================================================
-#
-# This file declares which skills your project needs.
-# Run \`npx skills-sync\` to install and sync all listed skills.
-#
-# USAGE:
-#   npx skills-sync              Sync project skills (default)
-#   npx skills-sync --global     Sync global skills
-#   npx skills-sync --dry-run    Preview changes
-#
-# SOURCE FORMAT:
-#   Each entry is passed to \`npx skills add\`, so any valid source works:
-#
-#   "owner/repo"                         GitHub shorthand
-#   "https://github.com/owner/repo"      Full URL
-#   "https://gitlab.com/group/repo"      GitLab
-#   "./local/path"                       Local directory
-#
-# FINDING SKILLS:
-#   npx skills find <query>              Search the skills registry
-#   https://skills.sh                    Browse available skills
-#
-# ============================================================================
-
-[skills]
-repos = [
-  # Add your skill sources here:
-  # "owner/repo-name",
-]
-`
+  return JSON.stringify(
+    {
+      skills: {
+        repos: [],
+      },
+    },
+    null,
+    2,
+  ) + '\n'
 }
 
 /**
  * Write the manifest template to disk.
- * - local scope: writes to CWD/.skills.toml
- * - global scope: writes to ~/.config/skills-sync/skills.toml (creates parent dirs)
+ * - local scope: writes to CWD/.skills.json
+ * - global scope: writes to ~/.config/skills-sync/skills.json (creates parent dirs)
  *
  * @throws Error if file already exists (refuses to overwrite)
  * @returns the absolute path written to
@@ -82,7 +59,7 @@ export async function writeManifestTemplate(scope: 'global' | 'local'): Promise<
 
 function resolveOutputPath(scope: 'global' | 'local'): string {
   if (scope === 'local') {
-    return path.join(process.cwd(), '.skills.toml')
+    return path.join(process.cwd(), '.skills.json')
   }
-  return path.join(os.homedir(), '.config', 'skills-sync', 'skills.toml')
+  return path.join(os.homedir(), '.config', 'skills-sync', 'skills.json')
 }

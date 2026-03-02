@@ -12,75 +12,74 @@ import {
 const FIXTURES = path.join(import.meta.dirname, 'fixtures')
 
 // ---------------------------------------------------------------------------
-// parseManifest — TOML parsing and validation
+// parseManifest — JSON parsing and validation
 // ---------------------------------------------------------------------------
 
 describe('parseManifest', () => {
-  it('parses valid TOML and returns Manifest with correct sources', async () => {
-    const content = await fs.readFile(path.join(FIXTURES, 'valid.skills.toml'), 'utf-8')
-    const manifest = parseManifest(content, 'valid.skills.toml')
+  it('parses valid JSON and returns Manifest with correct sources', async () => {
+    const content = await fs.readFile(path.join(FIXTURES, 'valid.skills.json'), 'utf-8')
+    const manifest = parseManifest(content, 'valid.skills.json')
     expect(manifest.sources).toEqual(['anthropics/claude-code', 'vercel-labs/skills'])
   })
 
   it('parses empty repos array as valid Manifest', async () => {
-    const content = await fs.readFile(path.join(FIXTURES, 'empty-repos.skills.toml'), 'utf-8')
-    const manifest = parseManifest(content, 'empty-repos.skills.toml')
+    const content = await fs.readFile(path.join(FIXTURES, 'empty-repos.skills.json'), 'utf-8')
+    const manifest = parseManifest(content, 'empty-repos.skills.json')
     expect(manifest.sources).toEqual([])
   })
 
-  it('throws ManifestParseError with line/column info on invalid TOML', async () => {
-    const content = await fs.readFile(path.join(FIXTURES, 'invalid.skills.toml'), 'utf-8')
-    expect(() => parseManifest(content, 'invalid.skills.toml')).toThrow(ManifestParseError)
+  it('throws ManifestParseError on invalid JSON', async () => {
+    const content = await fs.readFile(path.join(FIXTURES, 'invalid.skills.json'), 'utf-8')
+    expect(() => parseManifest(content, 'invalid.skills.json')).toThrow(ManifestParseError)
     try {
-      parseManifest(content, 'invalid.skills.toml')
+      parseManifest(content, 'invalid.skills.json')
     } catch (err) {
       expect(err).toBeInstanceOf(ManifestParseError)
-      // smol-toml includes line/column in its error message
       const msg = (err as ManifestParseError).message
-      expect(msg).toMatch(/invalid\.skills\.toml/)
+      expect(msg).toMatch(/invalid\.skills\.json/)
       // Ensure the error carries a hint
       expect((err as ManifestParseError).hint).toBeTruthy()
     }
   })
 
   it('throws ManifestValidationError on duplicate sources', async () => {
-    const content = await fs.readFile(path.join(FIXTURES, 'duplicate-repos.skills.toml'), 'utf-8')
-    expect(() => parseManifest(content, 'duplicate-repos.skills.toml')).toThrow(ManifestValidationError)
+    const content = await fs.readFile(path.join(FIXTURES, 'duplicate-repos.skills.json'), 'utf-8')
+    expect(() => parseManifest(content, 'duplicate-repos.skills.json')).toThrow(ManifestValidationError)
     try {
-      parseManifest(content, 'duplicate-repos.skills.toml')
+      parseManifest(content, 'duplicate-repos.skills.json')
     } catch (err) {
       expect((err as ManifestValidationError).message).toMatch(/duplicate/i)
     }
   })
 
-  it('throws ManifestValidationError when [skills] table is missing', () => {
-    const content = 'name = "test"'
-    expect(() => parseManifest(content, 'test.toml')).toThrow(ManifestValidationError)
+  it('throws ManifestValidationError when "skills" object is missing', () => {
+    const content = '{"name": "test"}'
+    expect(() => parseManifest(content, 'test.json')).toThrow(ManifestValidationError)
   })
 
   it('throws ManifestValidationError when repos key is missing', () => {
-    const content = '[skills]\nname = "test"'
-    expect(() => parseManifest(content, 'test.toml')).toThrow(ManifestValidationError)
+    const content = '{"skills": {"name": "test"}}'
+    expect(() => parseManifest(content, 'test.json')).toThrow(ManifestValidationError)
   })
 
   it('throws ManifestValidationError when repos is not an array', () => {
-    const content = '[skills]\nrepos = "owner/repo"'
-    expect(() => parseManifest(content, 'test.toml')).toThrow(ManifestValidationError)
+    const content = '{"skills": {"repos": "owner/repo"}}'
+    expect(() => parseManifest(content, 'test.json')).toThrow(ManifestValidationError)
   })
 
   it('throws ManifestValidationError when a source is an empty string', () => {
-    const content = '[skills]\nrepos = ["owner/repo", ""]'
-    expect(() => parseManifest(content, 'test.toml')).toThrow(ManifestValidationError)
+    const content = '{"skills": {"repos": ["owner/repo", ""]}}'
+    expect(() => parseManifest(content, 'test.json')).toThrow(ManifestValidationError)
   })
 
   it('throws ManifestValidationError when a source is not a string', () => {
-    const content = '[skills]\nrepos = [42]'
-    expect(() => parseManifest(content, 'test.toml')).toThrow(ManifestValidationError)
+    const content = '{"skills": {"repos": [42]}}'
+    expect(() => parseManifest(content, 'test.json')).toThrow(ManifestValidationError)
   })
 
   it('trims whitespace from sources but does not normalize', () => {
-    const content = '[skills]\nrepos = ["  owner/repo  "]'
-    const manifest = parseManifest(content, 'test.toml')
+    const content = '{"skills": {"repos": ["  owner/repo  "]}}'
+    const manifest = parseManifest(content, 'test.json')
     expect(manifest.sources).toEqual(['owner/repo'])
   })
 })
@@ -91,23 +90,23 @@ describe('parseManifest', () => {
 
 describe('resolveManifestPath', () => {
   it('returns --config path when provided (highest priority)', () => {
-    const result = resolveManifestPath('/custom/path/manifest.toml', 'local')
-    expect(result).toBe('/custom/path/manifest.toml')
+    const result = resolveManifestPath('/custom/path/manifest.json', 'local')
+    expect(result).toBe('/custom/path/manifest.json')
   })
 
   it('returns --config path even when scope is global', () => {
-    const result = resolveManifestPath('/custom/path/manifest.toml', 'global')
-    expect(result).toBe('/custom/path/manifest.toml')
+    const result = resolveManifestPath('/custom/path/manifest.json', 'global')
+    expect(result).toBe('/custom/path/manifest.json')
   })
 
-  it('returns CWD/.skills.toml when no configPath and scope is local', () => {
+  it('returns CWD/.skills.json when no configPath and scope is local', () => {
     const result = resolveManifestPath(undefined, 'local')
-    expect(result).toBe(path.join(process.cwd(), '.skills.toml'))
+    expect(result).toBe(path.join(process.cwd(), '.skills.json'))
   })
 
-  it('returns ~/.config/skills-sync/skills.toml when no configPath and scope is global', () => {
+  it('returns ~/.config/skills-sync/skills.json when no configPath and scope is global', () => {
     const result = resolveManifestPath(undefined, 'global')
-    expect(result).toBe(path.join(os.homedir(), '.config', 'skills-sync', 'skills.toml'))
+    expect(result).toBe(path.join(os.homedir(), '.config', 'skills-sync', 'skills.json'))
   })
 })
 
@@ -127,14 +126,14 @@ describe('readManifest', () => {
   })
 
   it('reads valid manifest file and returns Manifest', async () => {
-    const manifestPath = path.join(tempDir, 'test.skills.toml')
-    await fs.writeFile(manifestPath, '[skills]\nrepos = ["owner/repo"]\n', 'utf-8')
+    const manifestPath = path.join(tempDir, 'test.skills.json')
+    await fs.writeFile(manifestPath, '{"skills": {"repos": ["owner/repo"]}}\n', 'utf-8')
     const manifest = await readManifest(manifestPath, 'local')
     expect(manifest.sources).toEqual(['owner/repo'])
   })
 
   it('throws ManifestNotFoundError with --init hint on missing file', async () => {
-    const missingPath = path.join(tempDir, 'nonexistent.skills.toml')
+    const missingPath = path.join(tempDir, 'nonexistent.skills.json')
     await expect(readManifest(missingPath, 'local')).rejects.toThrow(ManifestNotFoundError)
     try {
       await readManifest(missingPath, 'local')
@@ -145,7 +144,7 @@ describe('readManifest', () => {
   })
 
   it('ManifestNotFoundError message includes the file path', async () => {
-    const missingPath = path.join(tempDir, 'nonexistent.skills.toml')
+    const missingPath = path.join(tempDir, 'nonexistent.skills.json')
     try {
       await readManifest(missingPath, 'local')
     } catch (err) {

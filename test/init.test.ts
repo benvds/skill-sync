@@ -13,36 +13,20 @@ describe('generateManifestTemplate', () => {
     expect(typeof generateManifestTemplate()).toBe('string')
   })
 
-  it('contains [skills] section', () => {
-    expect(generateManifestTemplate()).toContain('[skills]')
+  it('is valid JSON', () => {
+    expect(() => JSON.parse(generateManifestTemplate())).not.toThrow()
   })
 
-  it('contains repos array', () => {
-    expect(generateManifestTemplate()).toContain('repos = [')
+  it('contains skills object with repos array', () => {
+    const parsed = JSON.parse(generateManifestTemplate())
+    expect(parsed).toHaveProperty('skills')
+    expect(parsed.skills).toHaveProperty('repos')
+    expect(Array.isArray(parsed.skills.repos)).toBe(true)
   })
 
-  it('contains GitHub shorthand example as a comment', () => {
-    expect(generateManifestTemplate()).toMatch(/owner\/repo/)
-  })
-
-  it('contains full URL example as a comment', () => {
-    expect(generateManifestTemplate()).toMatch(/https:\/\/github\.com/)
-  })
-
-  it('contains local path example as a comment', () => {
-    expect(generateManifestTemplate()).toMatch(/\.\//)
-  })
-
-  it('contains usage instructions for npx skills-sync', () => {
-    expect(generateManifestTemplate()).toContain('npx skills-sync')
-  })
-
-  it('contains --global usage hint', () => {
-    expect(generateManifestTemplate()).toContain('--global')
-  })
-
-  it('contains --dry-run usage hint', () => {
-    expect(generateManifestTemplate()).toContain('--dry-run')
+  it('starts with an empty repos array', () => {
+    const parsed = JSON.parse(generateManifestTemplate())
+    expect(parsed.skills.repos).toEqual([])
   })
 })
 
@@ -67,27 +51,27 @@ describe('writeManifestTemplate', () => {
     await fs.rm(tempDir, { recursive: true, force: true })
   })
 
-  it('creates .skills.toml in CWD for local scope', async () => {
+  it('creates .skills.json in CWD for local scope', async () => {
     const writtenPath = await writeManifestTemplate('local')
-    expect(writtenPath).toBe(path.join(tempDir, '.skills.toml'))
+    expect(writtenPath).toBe(path.join(tempDir, '.skills.json'))
     const content = await fs.readFile(writtenPath, 'utf-8')
-    expect(content).toContain('[skills]')
+    const parsed = JSON.parse(content)
+    expect(parsed).toHaveProperty('skills')
   })
 
   it('returns the path it wrote to', async () => {
     const writtenPath = await writeManifestTemplate('local')
-    expect(writtenPath).toBe(path.join(tempDir, '.skills.toml'))
+    expect(writtenPath).toBe(path.join(tempDir, '.skills.json'))
   })
 
   it('creates global config file for global scope', async () => {
-    const globalDir = path.join(tempDir, 'config', 'skills-sync')
     // Override HOME to use temp dir
     const origHome = os.homedir()
     process.env.HOME = tempDir
 
     try {
       const writtenPath = await writeManifestTemplate('global')
-      const expectedPath = path.join(tempDir, '.config', 'skills-sync', 'skills.toml')
+      const expectedPath = path.join(tempDir, '.config', 'skills-sync', 'skills.json')
       expect(writtenPath).toBe(expectedPath)
       const stat = await fs.stat(writtenPath)
       expect(stat.isFile()).toBe(true)
@@ -110,7 +94,7 @@ describe('writeManifestTemplate', () => {
     try {
       await writeManifestTemplate('local')
     } catch (err) {
-      expect((err as Error).message).toContain('.skills.toml')
+      expect((err as Error).message).toContain('.skills.json')
     }
   })
 })

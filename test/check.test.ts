@@ -17,10 +17,10 @@ describe('--check flag', () => {
   })
 
   test('--check exits non-zero when no manifest exists', async () => {
-    // When no .skills.toml exists, readManifest throws — check mode still exits non-zero
+    // When no .skills.json exists, readManifest throws — check mode still exits non-zero
     const result = await execaNode(CLI, ['--check'], {
       reject: false,
-      cwd: import.meta.dirname, // test dir has no .skills.toml
+      cwd: import.meta.dirname, // test dir has no .skills.json
     })
     expect(result.exitCode).toBe(1)
   })

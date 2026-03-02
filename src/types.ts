@@ -3,7 +3,7 @@
  * All pipeline stages pass these typed data structures forward.
  */
 
-/** Parsed representation of .skills.toml manifest */
+/** Parsed representation of .skills.json manifest */
 export interface Manifest {
   sources: string[]
 }

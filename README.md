@@ -18,14 +18,17 @@ No global installation needed. Run directly with `npx`.
    npx skills-sync --init
    ```
 
-2. Edit `.skills.toml` to add your skill sources:
+2. Edit `.skills.json` to add your skill sources:
 
-   ```toml
-   [skills]
-   repos = [
-     "anthropics/skills/computer-use",
-     "anthropics/skills/web-search",
-   ]
+   ```json
+   {
+     "skills": {
+       "repos": [
+         "anthropics/skills/computer-use",
+         "anthropics/skills/web-search"
+       ]
+     }
+   }
    ```
 
 3. Sync skills:
@@ -38,10 +41,10 @@ No global installation needed. Run directly with `npx`.
 
 | Flag | Description |
 |------|-------------|
-| `--init` | Create a sample `.skills.toml` in current directory |
+| `--init` | Create a sample `.skills.json` in current directory |
 | `--check` | Exit 0 if in sync, exit 1 if out of sync (CI gate) |
 | `--dry-run` | Show planned changes without executing |
-| `--global` | Sync to global scope (`~/.config/skills-sync/skills.toml`) |
+| `--global` | Sync to global scope (`~/.config/skills-sync/skills.json`) |
 | `--local` | Sync to project scope (default) |
 | `--config <path>` | Path to manifest file |
 | `-y, --yes` | Skip confirmation prompts |

@@ -30,14 +30,14 @@ export class ManifestNotFoundError extends SkillsSyncError {
   }
 }
 
-/** Thrown when the manifest file contains invalid TOML syntax */
+/** Thrown when the manifest file contains invalid JSON syntax */
 export class ManifestParseError extends SkillsSyncError {
   readonly hint: string
 
   constructor(filePath: string, cause: unknown) {
     const msg = cause instanceof Error ? cause.message : String(cause)
-    super(`Invalid TOML in ${filePath}: ${msg}`)
-    this.hint = 'Check the line/column in the error above and fix the syntax'
+    super(`Invalid JSON in ${filePath}: ${msg}`)
+    this.hint = 'Check the error above and fix the JSON syntax'
   }
 }
 
@@ -47,7 +47,7 @@ export class ManifestValidationError extends SkillsSyncError {
 
   constructor(filePath: string, reason: string) {
     super(`Invalid manifest at ${filePath}: ${reason}`)
-    this.hint = "Check the manifest structure — it must have a [skills] table with a 'repos' array"
+    this.hint = 'Check the manifest structure — it must have a "skills" object with a "repos" array'
   }
 }
 
