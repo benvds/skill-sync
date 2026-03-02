@@ -6,3 +6,4 @@ pub mod init;
 pub mod manifest;
 pub mod metadata;
 pub mod resolver;
+pub mod sync;

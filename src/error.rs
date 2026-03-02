@@ -70,6 +70,40 @@ pub enum SkillsSyncError {
     #[error(transparent)]
     #[diagnostic(code(skills_sync::io))]
     Io(#[from] std::io::Error),
+
+    #[error("git command failed: `git {args}`")]
+    #[diagnostic(
+        code(skills_sync::sync::git_failed),
+        help("{stderr}")
+    )]
+    GitFailed { args: String, stderr: String },
+
+    #[error("git not found — ensure git is installed and in PATH")]
+    #[diagnostic(
+        code(skills_sync::sync::git_not_found),
+        help("Install git: https://git-scm.com/downloads")
+    )]
+    GitNotFound { source: std::io::Error },
+
+    #[error("failed to rename `{}`", path.display())]
+    #[diagnostic(code(skills_sync::sync::rename_failed))]
+    RenameFailed {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("failed to remove skill at `{}`", path.display())]
+    #[diagnostic(code(skills_sync::sync::remove_failed))]
+    RemoveFailed {
+        path: std::path::PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("sync failed for `{repo}`: {reason}")]
+    #[diagnostic(code(skills_sync::sync::failed))]
+    SyncFailed { repo: String, reason: String },
 }
 
 pub type Result<T> = miette::Result<T>;
