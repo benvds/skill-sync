@@ -6,8 +6,9 @@ use skills_sync::github::{self, AuthMethod};
 use skills_sync::init::run_init;
 use skills_sync::metadata;
 use skills_sync::resolver;
+use skills_sync::sync;
 use skills_sync::{manifest, resolver::skill_key};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 fn main() {
     // Install miette error handler for fancy diagnostics
@@ -52,14 +53,21 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         eprintln!("auth: {:?}", auth_method);
     }
 
+    // Clone token before moving it into GitHubClient so we can pass it to the sync engine
+    let sync_token = token.clone();
+
     let client = github::GitHubClient::new(token, auth_method)
         .map_err(|e| SkillsSyncError::HttpClient(e.to_string()))?;
 
     // Process each repo from manifest
     let mut all_actions: Vec<resolver::SyncAction> = Vec::new();
     let mut failed_repos: Vec<(String, String)> = Vec::new();
+    let mut branch_map: HashMap<String, String> = HashMap::new();
+    let mut manifest_repos: HashSet<String> = HashSet::new();
 
     for repo_entry in &manifest.skills.repos {
+        // Track all repos from manifest (before any early continues)
+        manifest_repos.insert(repo_entry.clone());
         // Split owner/repo
         let parts: Vec<&str> = repo_entry.splitn(2, '/').collect();
         let (owner, repo_name) = (parts[0], parts[1]);
@@ -79,6 +87,8 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
                 continue;
             }
         };
+
+        branch_map.insert(repo_entry.clone(), repo_info.default_branch.clone());
 
         if cli.verbose {
             eprintln!(
@@ -170,7 +180,17 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         println!("everything up to date ({} skills)", skips);
     }
 
-    // Exit non-zero if any repo failed
+    // Execute sync plan (handles install, update, remove, orphan detection, and cleanup)
+    let target_dir = std::path::Path::new(".claude/skills");
+    sync::execute_sync_plan(
+        &all_actions,
+        target_dir,
+        sync_token.as_deref(),
+        &branch_map,
+        &manifest_repos,
+    )?;
+
+    // Exit non-zero if any repo failed at the API level (separate from sync failures)
     if !failed_repos.is_empty() {
         return Err(SkillsSyncError::GitHubApi {
             status: 0,
