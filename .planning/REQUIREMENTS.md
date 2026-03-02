@@ -33,12 +33,12 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### CLI Flags
 
-- [ ] **CLI-01**: `--dry-run` shows planned changes (install/update/remove) without executing
-- [ ] **CLI-02**: `--force` skips confirmation prompts for non-interactive/CI usage
+- [x] **CLI-01**: `--dry-run` shows planned changes (install/update/remove) without executing
+- [x] **CLI-02**: `--force` skips confirmation prompts for non-interactive/CI usage
 - [ ] **CLI-03**: `--verbose` shows detailed per-skill output including SHA comparisons
-- [ ] **CLI-04**: `--help` displays usage information with all flags and options
-- [ ] **CLI-05**: `--version` displays current version
-- [ ] **CLI-06**: `--global` and `--local` are mutually exclusive; conflicting usage produces clear error
+- [x] **CLI-04**: `--help` displays usage information with all flags and options
+- [x] **CLI-05**: `--version` displays current version
+- [x] **CLI-06**: `--global` and `--local` are mutually exclusive; conflicting usage produces clear error
 
 ### Error Handling
 
@@ -105,12 +105,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-05 | Phase 1 | Pending |
 | SYNC-06 | Phase 3 | Complete |
 | SYNC-07 | Phase 2 | Pending |
-| CLI-01 | Phase 4 | Pending |
-| CLI-02 | Phase 4 | Pending |
+| CLI-01 | Phase 4 | Complete |
+| CLI-02 | Phase 4 | Complete |
 | CLI-03 | Phase 4 | Pending |
-| CLI-04 | Phase 4 | Pending |
-| CLI-05 | Phase 4 | Pending |
-| CLI-06 | Phase 4 | Pending |
+| CLI-04 | Phase 4 | Complete |
+| CLI-05 | Phase 4 | Complete |
+| CLI-06 | Phase 4 | Complete |
 | ERR-01 | Phase 1 | Pending |
 | ERR-02 | Phase 1 | Pending |
 | ERR-03 | Phase 3 | Complete |

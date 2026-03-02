@@ -18,14 +18,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** Declarative, zero-friction skill synchronization: run one command and your skills directory matches your manifest.
-**Current focus:** Phase 3 — Sync Engine
+**Current focus:** Phase 4 — CLI + UX
 
 ## Current Position
 
-Phase: 3 of 4 (Sync Engine)
-Plan: 5 of 5 in current phase (COMPLETE)
+Phase: 4 of 4 (CLI + UX)
+Plan: 1 of 3 in current phase (COMPLETE)
 Status: In progress
-Last activity: 2026-03-02 - Completed quick task 1: Consolidate lock files into single lock file next to manifest
+Last activity: 2026-03-02 - Completed 04-01: CLI flags (--dry-run, --force, --local, --version) with dry-run short-circuit and force passthrough
 
 Progress: [██████████] 100%
 
@@ -76,6 +76,10 @@ Recent decisions affecting current work:
 - [Phase quick-1]: Lock file path derived from manifest path via with_extension('lock') — .skills.toml -> .skills.lock
 - [Phase quick-1]: schema_version moved from SkillMeta to LockFile only — per-entry schema version removed, version lives at file level
 - [Phase quick-1]: LockFile passed as &mut through entire sync pipeline for crash-safe per-operation writes
+- [04-01]: Dry-run scans global orphans before short-circuit so preview output is complete (includes orphans)
+- [04-01]: force param added to prompt_orphan_removal (private) and execute_sync_plan (public) for CI usage
+- [04-01]: conflicts_with on local field (not flag name) per clap derive convention for mutual exclusivity
+- [04-01]: std::process::exit(2) used in dry-run (safe — no resources to clean up at that point)
 
 ### Pending Todos
 
@@ -95,5 +99,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-04-PLAN.md — monorepo subdirectory manifest support complete
+Stopped at: Completed 04-01-PLAN.md — CLI flags with dry-run, force, local, version complete
 Resume file: None

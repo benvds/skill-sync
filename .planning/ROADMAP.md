@@ -87,4 +87,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Foundation | 0/TBD | Complete    | 2026-02-28 |
 | 2. GitHub + Resolver | 3/3 | Complete | 2026-02-28 |
 | 3. Sync Engine | 5/5 | Complete   | 2026-03-02 |
-| 4. CLI + UX | 0/2 | In progress | - |
+| 4. CLI + UX | 1/2 | In Progress|  |
