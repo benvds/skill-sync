@@ -1,4 +1,5 @@
-use std::path::Path;
+use std::collections::{HashMap, HashSet};
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::error::SkillsSyncError;
@@ -235,4 +236,241 @@ pub fn execute_remove(skill_path: &Path) -> crate::error::Result<()> {
         }
         .into()
     })
+}
+
+// ── Orphan detection and cleanup ──────────────────────────────────────────────
+
+/// Clean up stale temp directories left by interrupted sync runs.
+///
+/// Scans `target_dir` for entries matching `.skills-sync-tmp-*` and removes
+/// them. Errors are silently ignored (best-effort cleanup).
+pub fn cleanup_stale_temp_dirs(target_dir: &Path) {
+    let entries = match std::fs::read_dir(target_dir) {
+        Ok(e) => e,
+        Err(_) => return,
+    };
+
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+        if name_str.starts_with(".skills-sync-tmp-") {
+            eprintln!("cleaned up stale temp dir: {}", name_str);
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
+/// An orphaned skill directory found in the target dir but not in the manifest.
+pub struct OrphanSkill {
+    pub dir_path: PathBuf,
+    pub dir_name: String,
+    pub source: String,
+}
+
+/// Scan `target_dir` for skill directories whose source repo is not in `manifest_repos`.
+///
+/// Returns an empty Vec if the directory does not exist. Entries starting with
+/// `.skills-sync-tmp-` are skipped (temp dirs). Results are sorted by dir_name
+/// for deterministic output.
+pub fn scan_orphans(target_dir: &Path, manifest_repos: &HashSet<String>) -> Vec<OrphanSkill> {
+    let mut orphans = Vec::new();
+
+    let entries = match std::fs::read_dir(target_dir) {
+        Ok(e) => e,
+        Err(_) => return orphans,
+    };
+
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+
+        // Skip temp dirs
+        if name_str.starts_with(".skills-sync-tmp-") {
+            continue;
+        }
+
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+
+        let meta_path = path.join(META_FILENAME);
+        if let Ok(meta) = crate::metadata::read_metadata(&meta_path) {
+            if !manifest_repos.contains(&meta.source) {
+                orphans.push(OrphanSkill {
+                    dir_path: path,
+                    dir_name: name_str.into_owned(),
+                    source: meta.source,
+                });
+            }
+        }
+    }
+
+    orphans.sort_by(|a, b| a.dir_name.cmp(&b.dir_name));
+    orphans
+}
+
+/// Prompt the user to confirm batch removal of orphaned skills.
+///
+/// Prints a list of orphans to stderr, then presents a Y/n prompt.
+/// Non-interactive terminals (no TTY) return false silently — no removal occurs.
+fn prompt_orphan_removal(orphans: &[OrphanSkill]) -> bool {
+    eprintln!("warning: {} orphaned skill(s) found:", orphans.len());
+    for orphan in orphans {
+        eprintln!("  {} ({})", orphan.dir_name, orphan.source);
+    }
+
+    match dialoguer::Confirm::new()
+        .with_prompt("Remove orphaned skills?")
+        .default(false)
+        .interact_opt()
+    {
+        Ok(Some(true)) => true,
+        _ => false,
+    }
+}
+
+/// Execute the full sync plan: cleanup, installs, updates, orphan detection, and removal.
+///
+/// Processes actions sequentially, warning on per-skill failures and continuing.
+/// After installs/updates, scans for global orphans (repos removed from manifest)
+/// and combines with resolver Remove actions into a single batch prompt.
+///
+/// Returns `Err(SyncFailed)` if any skill operations failed; Ok(()) otherwise.
+pub fn execute_sync_plan(
+    actions: &[crate::resolver::SyncAction],
+    target_dir: &Path,
+    token: Option<&str>,
+    branch_map: &HashMap<String, String>,
+    manifest_repos: &HashSet<String>,
+) -> crate::error::Result<()> {
+    cleanup_stale_temp_dirs(target_dir);
+
+    // Ensure target dir exists
+    let _ = std::fs::create_dir_all(target_dir);
+
+    let mut failed_skills: Vec<String> = Vec::new();
+    let mut succeeded: usize = 0;
+    let mut remove_actions: Vec<&crate::resolver::SyncAction> = Vec::new();
+
+    for action in actions {
+        match action {
+            crate::resolver::SyncAction::Install {
+                repo,
+                subdirectory,
+                remote_sha,
+            } => {
+                let dir_name = skill_dir_name(repo, subdirectory);
+                let branch = branch_map.get(repo).map(|s| s.as_str()).unwrap_or("main");
+                match execute_install(repo, subdirectory, remote_sha, branch, target_dir, token) {
+                    Ok(()) => {
+                        println!("installed: {}", dir_name);
+                        succeeded += 1;
+                    }
+                    Err(e) => {
+                        eprintln!("warning: failed to install {}: {}", dir_name, e);
+                        failed_skills.push(dir_name);
+                    }
+                }
+            }
+            crate::resolver::SyncAction::Update {
+                repo,
+                subdirectory,
+                new_sha,
+                ..
+            } => {
+                let dir_name = skill_dir_name(repo, subdirectory);
+                let branch = branch_map.get(repo).map(|s| s.as_str()).unwrap_or("main");
+                match execute_update(repo, subdirectory, new_sha, branch, target_dir, token) {
+                    Ok(()) => {
+                        println!("updated: {}", dir_name);
+                        succeeded += 1;
+                    }
+                    Err(e) => {
+                        eprintln!("warning: failed to update {}: {}", dir_name, e);
+                        failed_skills.push(dir_name);
+                    }
+                }
+            }
+            crate::resolver::SyncAction::Remove { .. } => {
+                // Collect for batch removal with global orphans
+                remove_actions.push(action);
+            }
+            crate::resolver::SyncAction::Skip { .. } => {
+                // No action needed
+            }
+        }
+    }
+
+    // Build global orphan list (repos removed from manifest entirely)
+    let global_orphans = scan_orphans(target_dir, manifest_repos);
+
+    // Convert resolver Remove actions to OrphanSkill entries
+    let mut all_orphans: Vec<OrphanSkill> = Vec::new();
+
+    for action in &remove_actions {
+        if let crate::resolver::SyncAction::Remove {
+            repo,
+            subdirectory,
+            ..
+        } = action
+        {
+            let dir_name = skill_dir_name(repo, subdirectory);
+            let dir_path = target_dir.join(&dir_name);
+            all_orphans.push(OrphanSkill {
+                dir_path,
+                dir_name,
+                source: repo.clone(),
+            });
+        }
+    }
+
+    // Add global orphans (skip any already covered by remove_actions)
+    let remove_action_dirs: HashSet<String> = all_orphans
+        .iter()
+        .map(|o| o.dir_name.clone())
+        .collect();
+    for orphan in global_orphans {
+        if !remove_action_dirs.contains(&orphan.dir_name) {
+            all_orphans.push(orphan);
+        }
+    }
+
+    // Sort for deterministic display
+    all_orphans.sort_by(|a, b| a.dir_name.cmp(&b.dir_name));
+
+    // Batch orphan removal with single prompt
+    if !all_orphans.is_empty() {
+        let confirmed = prompt_orphan_removal(&all_orphans);
+        if confirmed {
+            for orphan in &all_orphans {
+                match execute_remove(&orphan.dir_path) {
+                    Ok(()) => {
+                        println!("removed: {}", orphan.dir_name);
+                        succeeded += 1;
+                    }
+                    Err(e) => {
+                        eprintln!("warning: failed to remove {}: {}", orphan.dir_name, e);
+                        failed_skills.push(orphan.dir_name.clone());
+                    }
+                }
+            }
+        }
+    }
+
+    let failed_count = failed_skills.len();
+    eprintln!(
+        "sync complete: {} succeeded, {} failed",
+        succeeded, failed_count
+    );
+
+    if failed_count > 0 {
+        return Err(SkillsSyncError::SyncFailed {
+            repo: "multiple".to_string(),
+            reason: format!("{} skill(s) failed to sync", failed_count),
+        }
+        .into());
+    }
+
+    Ok(())
 }
