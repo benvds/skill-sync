@@ -17,7 +17,7 @@ Execute sync actions on disk — install, update, and remove skills while leavin
 - Single-skill repos named `owner--repo` (e.g., `.claude/skills/anthropics--claude-skills/`)
 - Monorepo skills named `owner--repo--subdir` (e.g., `.claude/skills/anthropics--monorepo--python/`)
 - Flat structure — no nested owner directories
-- Metadata file (`.skills-sync-meta.json`) lives inside the skill directory — self-contained
+- Lock file (`.skills.lock`) lives inside the skill directory — self-contained
 - Monorepo sparse checkout extracts subdirectory contents only — no redundant nesting inside the skill dir
 
 ### Orphan removal flow

@@ -4,8 +4,8 @@ use std::io::Write;
 use std::path::Path;
 use tempfile::NamedTempFile;
 
-/// Filename for per-skill metadata files.
-pub const META_FILENAME: &str = ".skills-sync-meta.json";
+/// Filename for per-skill lock files.
+pub const META_FILENAME: &str = ".skills.lock";
 
 /// Per-skill metadata tracking installation state.
 ///
@@ -55,18 +55,17 @@ pub fn write_metadata_atomic(path: &Path, meta: &SkillMeta) -> std::io::Result<(
         )
     })?;
     let mut tmp = NamedTempFile::new_in(dir)?;
-    let json = serde_json::to_string_pretty(meta)
+    let toml_str = toml::to_string_pretty(meta)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
-    tmp.write_all(json.as_bytes())?;
-    tmp.write_all(b"\n")?;
+    tmp.write_all(toml_str.as_bytes())?;
     tmp.flush()?;
     tmp.persist(path).map_err(|e| e.error)?;
     Ok(())
 }
 
-/// Read metadata from a JSON file.
+/// Read metadata from a TOML lock file.
 pub fn read_metadata(path: &Path) -> std::io::Result<SkillMeta> {
     let content = std::fs::read_to_string(path)?;
-    serde_json::from_str(&content)
+    toml::from_str(&content)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 }

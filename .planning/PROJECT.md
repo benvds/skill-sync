@@ -26,7 +26,7 @@ Declarative, zero-friction skill synchronization: run one command and your skill
 - [ ] `--dry-run` shows planned changes without executing
 - [ ] `--force` skips confirmation prompts
 - [ ] `--verbose` shows detailed output
-- [ ] Write `.skills-sync-meta.json` per installed skill for state tracking
+- [ ] Write `.skills.lock` per installed skill for state tracking
 - [ ] Graceful error handling (missing repos, rate limits, network failures)
 
 ### Out of Scope
