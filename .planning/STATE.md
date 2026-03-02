@@ -23,9 +23,9 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 4 of 4 (CLI + UX)
-Plan: 1 of 3 in current phase (COMPLETE)
+Plan: 2 of 3 in current phase (COMPLETE)
 Status: In progress
-Last activity: 2026-03-02 - Completed 04-01: CLI flags (--dry-run, --force, --local, --version) with dry-run short-circuit and force passthrough
+Last activity: 2026-03-02 - Completed 04-02: Colored output (owo-colors), verbose SHA comparisons, GitHub Actions release workflow, install script
 
 Progress: [██████████] 100%
 
@@ -80,6 +80,11 @@ Recent decisions affecting current work:
 - [04-01]: force param added to prompt_orphan_removal (private) and execute_sync_plan (public) for CI usage
 - [04-01]: conflicts_with on local field (not flag name) per clap derive convention for mutual exclusivity
 - [04-01]: std::process::exit(2) used in dry-run (safe — no resources to clean up at that point)
+- [04-02]: verbose SHA shown before operation line so context precedes result
+- [04-02]: install_count/update_count/remove_count tracked separately for accurate summary breakdown
+- [04-02]: Summary line green on full success, red on any failure
+- [04-02]: install.sh targets ~/.local/bin (XDG standard user bin, no sudo needed)
+- [04-02]: POSIX sh for install script for broad compatibility
 
 ### Pending Todos
 
@@ -99,5 +104,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 04-01-PLAN.md — CLI flags with dry-run, force, local, version complete
+Stopped at: Completed 04-02-PLAN.md — Colored output, verbose SHA, release workflow, install script complete
 Resume file: None

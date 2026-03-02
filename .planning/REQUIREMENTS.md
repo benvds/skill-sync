@@ -35,7 +35,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **CLI-01**: `--dry-run` shows planned changes (install/update/remove) without executing
 - [x] **CLI-02**: `--force` skips confirmation prompts for non-interactive/CI usage
-- [ ] **CLI-03**: `--verbose` shows detailed per-skill output including SHA comparisons
+- [x] **CLI-03**: `--verbose` shows detailed per-skill output including SHA comparisons
 - [x] **CLI-04**: `--help` displays usage information with all flags and options
 - [x] **CLI-05**: `--version` displays current version
 - [x] **CLI-06**: `--global` and `--local` are mutually exclusive; conflicting usage produces clear error
@@ -107,7 +107,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SYNC-07 | Phase 2 | Pending |
 | CLI-01 | Phase 4 | Complete |
 | CLI-02 | Phase 4 | Complete |
-| CLI-03 | Phase 4 | Pending |
+| CLI-03 | Phase 4 | Complete |
 | CLI-04 | Phase 4 | Complete |
 | CLI-05 | Phase 4 | Complete |
 | CLI-06 | Phase 4 | Complete |
