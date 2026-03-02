@@ -5,10 +5,10 @@ use skills_sync::error::SkillsSyncError;
 use skills_sync::github::{self, AuthMethod};
 use skills_sync::init::run_init;
 use skills_sync::manifest::parse_repo_entry;
-use skills_sync::metadata;
+use skills_sync::metadata::{self, lock_path_for_manifest, read_lock_file, LockFile};
 use skills_sync::resolver;
 use skills_sync::sync;
-use skills_sync::{manifest, resolver::skill_key};
+use skills_sync::manifest;
 use std::collections::{HashMap, HashSet};
 
 fn main() {
@@ -42,6 +42,9 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         std::fs::read_to_string(&manifest_path).map_err(SkillsSyncError::Io)?;
     let manifest = manifest::parse_and_validate(&content, &manifest_path)?;
 
+    // Derive lock file path from manifest path (.skills.toml → .skills.lock)
+    let lock_path = lock_path_for_manifest(&manifest_path);
+
     // Discover GitHub authentication
     let (token, auth_method) = github::discover_token();
     if matches!(auth_method, AuthMethod::Unauthenticated) {
@@ -71,6 +74,9 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         std::path::PathBuf::from(".claude/skills")
     };
     let target_dir = target_dir_buf.as_path();
+
+    // Read consolidated lock file once (returns empty if not found yet)
+    let lock_file = read_lock_file(&lock_path).map_err(SkillsSyncError::Io)?;
 
     // Process each repo from manifest
     let mut all_actions: Vec<resolver::SyncAction> = Vec::new();
@@ -155,8 +161,8 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
             eprintln!("{}: detected as {}", repo_slug, skill_type);
         }
 
-        // Load local metadata using repo_slug (owner/repo), not full entry
-        let local_metadata = load_local_metadata(&repo_slug, target_dir);
+        // Load local metadata from consolidated lock file (filter by repo_slug)
+        let local_metadata = load_local_metadata(&repo_slug, &lock_file);
 
         // Build repo skills for resolver
         let repo_skills = resolver::RepoSkills {
@@ -212,6 +218,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         sync_token.as_deref(),
         &branch_map,
         &manifest_repos,
+        &lock_path,
     )?;
 
     // Exit non-zero if any repo failed at the API level (separate from sync failures)
@@ -233,34 +240,13 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
 
 /// Load local metadata for skills from a specific repo.
 ///
-/// Scans the given target_dir for sibling lock files (*.lock) and returns
-/// those matching the given repo. Lock files are stored as siblings to skill
-/// directories at the target_dir level (e.g., target_dir/owner--repo.lock).
-fn load_local_metadata(repo: &str, target_dir: &std::path::Path) -> HashMap<String, metadata::SkillMeta> {
-    let mut result = HashMap::new();
-
-    if !target_dir.exists() {
-        return result;
-    }
-
-    if let Ok(entries) = std::fs::read_dir(target_dir) {
-        for entry in entries.flatten() {
-            let path = entry.path();
-            // Look for sibling lock files (*.lock) instead of lock files inside directories
-            if path.is_file() {
-                if let Some(ext) = path.extension() {
-                    if ext == metadata::META_EXTENSION {
-                        if let Ok(meta) = metadata::read_metadata(&path) {
-                            if meta.source == repo {
-                                let key = skill_key(repo, &meta.subdirectory);
-                                result.insert(key, meta);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    result
+/// Reads entries from the consolidated lock file that match the given repo source.
+/// Returns a HashMap keyed by skill_key for use with the resolver.
+fn load_local_metadata(repo: &str, lock_file: &LockFile) -> HashMap<String, metadata::SkillMeta> {
+    lock_file
+        .skills
+        .iter()
+        .filter(|(_, meta)| meta.source == repo)
+        .map(|(key, meta)| (key.clone(), meta.clone()))
+        .collect()
 }

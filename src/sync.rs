@@ -3,7 +3,8 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::error::SkillsSyncError;
-use crate::metadata::{write_metadata_atomic, SkillMeta};
+use crate::metadata::{read_lock_file, write_lock_file_atomic, LockFile, SkillMeta};
+use crate::resolver::skill_key;
 
 // ── Directory naming ──────────────────────────────────────────────────────────
 
@@ -85,8 +86,10 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> crate::error::Result<()> {
 /// Single-skill repo: shallow clone (`--depth=1`) → atomic rename to final path.
 /// Monorepo skill:    4-step sparse checkout → move subdirectory → atomic rename.
 ///
-/// Metadata (`.skills.lock`) is written ONLY after the final rename succeeds.
+/// After successful install, inserts metadata into `lock_file` and writes
+/// the consolidated lock file atomically to `lock_path`.
 /// On git failure the temp directory is removed (best-effort) before returning.
+#[allow(clippy::too_many_arguments)]
 pub fn execute_install(
     repo: &str,
     subdirectory: &Option<String>,
@@ -94,6 +97,8 @@ pub fn execute_install(
     branch: &str,
     target_dir: &Path,
     token: Option<&str>,
+    lock_path: &Path,
+    lock_file: &mut LockFile,
 ) -> crate::error::Result<()> {
     let dir_name = skill_dir_name(repo, subdirectory);
     let final_path = target_dir.join(&dir_name);
@@ -176,21 +181,23 @@ pub fn execute_install(
         return Err(e);
     }
 
-    // Write metadata ONLY after successful rename
-    let meta_path = crate::metadata::meta_path_for_skill(target_dir, &dir_name);
+    // Write metadata into the consolidated lock file ONLY after successful rename
     let meta = match subdirectory {
         None => SkillMeta::new(repo, remote_sha),
         Some(subdir) => SkillMeta::new(repo, remote_sha).with_subdirectory(subdir.clone()),
     };
-    write_metadata_atomic(&meta_path, &meta).map_err(SkillsSyncError::Io)?;
+    let key = skill_key(repo, subdirectory);
+    lock_file.skills.insert(key, meta);
+    write_lock_file_atomic(lock_path, lock_file).map_err(SkillsSyncError::Io)?;
 
     Ok(())
 }
 
 /// Update an already-installed skill to a new SHA.
 ///
-/// Reads the old `.skills.lock` to preserve `installed_at`, removes the old
-/// directory, calls `execute_install`, then patches `installed_at` back.
+/// Preserves `installed_at` from the existing lock_file entry.
+/// Removes the old directory, calls `execute_install`, then patches `installed_at` back.
+#[allow(clippy::too_many_arguments)]
 pub fn execute_update(
     repo: &str,
     subdirectory: &Option<String>,
@@ -198,14 +205,17 @@ pub fn execute_update(
     branch: &str,
     target_dir: &Path,
     token: Option<&str>,
+    lock_path: &Path,
+    lock_file: &mut LockFile,
 ) -> crate::error::Result<()> {
     let dir_name = skill_dir_name(repo, subdirectory);
     let existing_path = target_dir.join(&dir_name);
+    let key = skill_key(repo, subdirectory);
 
-    // Preserve installed_at from old metadata (read from sibling lock file)
-    let old_meta_path = crate::metadata::meta_path_for_skill(target_dir, &dir_name);
-    let installed_at = crate::metadata::read_metadata(&old_meta_path)
-        .ok()
+    // Preserve installed_at from existing lock_file entry
+    let installed_at = lock_file
+        .skills
+        .get(&key)
         .map(|m| m.installed_at)
         .unwrap_or_else(chrono::Utc::now);
 
@@ -215,33 +225,37 @@ pub fn execute_update(
         source: e,
     })?;
 
-    // Re-install fresh
-    execute_install(repo, subdirectory, new_sha, branch, target_dir, token)?;
+    // Re-install fresh (this will insert into lock_file and write it)
+    execute_install(repo, subdirectory, new_sha, branch, target_dir, token, lock_path, lock_file)?;
 
-    // Patch installed_at back (write to sibling lock file)
-    let meta_path = crate::metadata::meta_path_for_skill(target_dir, &dir_name);
-    if let Ok(mut meta) = crate::metadata::read_metadata(&meta_path) {
+    // Patch installed_at back and re-write the lock file
+    if let Some(meta) = lock_file.skills.get_mut(&key) {
         meta.installed_at = installed_at;
-        let _ = crate::metadata::write_metadata_atomic(&meta_path, &meta);
     }
+    write_lock_file_atomic(lock_path, lock_file).map_err(SkillsSyncError::Io)?;
 
     Ok(())
 }
 
-/// Remove an installed skill directory and its sibling lock file.
+/// Remove an installed skill directory and update the consolidated lock file.
 ///
 /// Returns `RemoveFailed` if the directory cannot be removed (including if it
-/// does not exist). The lock file removal is best-effort — if the lock file
-/// doesn't exist or fails to delete, the skill directory removal still succeeds.
-pub fn execute_remove(skill_path: &Path, lock_path: Option<&Path>) -> crate::error::Result<()> {
+/// does not exist). The lock file entry removal and write are performed after
+/// successful directory removal.
+pub fn execute_remove(
+    skill_path: &Path,
+    lock_path: &Path,
+    lock_file: &mut LockFile,
+    skill_key_str: &str,
+) -> crate::error::Result<()> {
     std::fs::remove_dir_all(skill_path).map_err(|e| SkillsSyncError::RemoveFailed {
         path: skill_path.to_owned(),
         source: e,
     })?;
-    // Best-effort lock file cleanup
-    if let Some(lp) = lock_path {
-        let _ = std::fs::remove_file(lp);
-    }
+    // Remove entry from consolidated lock file
+    lock_file.skills.remove(skill_key_str);
+    // Write updated lock file
+    let _ = write_lock_file_atomic(lock_path, lock_file);
     Ok(())
 }
 
@@ -272,44 +286,38 @@ pub struct OrphanSkill {
     pub dir_path: PathBuf,
     pub dir_name: String,
     pub source: String,
+    pub skill_key: String,
 }
 
-/// Scan `target_dir` for skill directories whose source repo is not in `manifest_repos`.
+/// Scan the consolidated lock file for skill entries whose source repo is not in `manifest_repos`
+/// and whose directory still exists on disk.
 ///
-/// Returns an empty Vec if the directory does not exist. Entries starting with
-/// `.skills-sync-tmp-` are skipped (temp dirs). Results are sorted by dir_name
+/// Returns an empty Vec if no orphans found. Results are sorted by dir_name
 /// for deterministic output.
-pub fn scan_orphans(target_dir: &Path, manifest_repos: &HashSet<String>) -> Vec<OrphanSkill> {
+pub fn scan_orphans(
+    target_dir: &Path,
+    manifest_repos: &HashSet<String>,
+    lock_file: &LockFile,
+) -> Vec<OrphanSkill> {
     let mut orphans = Vec::new();
 
-    let entries = match std::fs::read_dir(target_dir) {
-        Ok(e) => e,
-        Err(_) => return orphans,
-    };
-
-    for entry in entries.flatten() {
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-
-        // Skip temp dirs
-        if name_str.starts_with(".skills-sync-tmp-") {
+    for (key, meta) in &lock_file.skills {
+        if manifest_repos.contains(&meta.source) {
             continue;
         }
 
-        let path = entry.path();
-        if !path.is_dir() {
-            continue;
-        }
+        // Build the directory path from skill key
+        let dir_name = skill_dir_name(&meta.source, &meta.subdirectory);
+        let dir_path = target_dir.join(&dir_name);
 
-        let meta_path = crate::metadata::meta_path_for_skill(target_dir, &name_str);
-        if let Ok(meta) = crate::metadata::read_metadata(&meta_path) {
-            if !manifest_repos.contains(&meta.source) {
-                orphans.push(OrphanSkill {
-                    dir_path: path,
-                    dir_name: name_str.into_owned(),
-                    source: meta.source,
-                });
-            }
+        // Only report as orphan if directory actually exists on disk
+        if dir_path.is_dir() {
+            orphans.push(OrphanSkill {
+                dir_path,
+                dir_name,
+                source: meta.source.clone(),
+                skill_key: key.clone(),
+            });
         }
     }
 
@@ -327,20 +335,20 @@ fn prompt_orphan_removal(orphans: &[OrphanSkill]) -> bool {
         eprintln!("  {} ({})", orphan.dir_name, orphan.source);
     }
 
-    match dialoguer::Confirm::new()
-        .with_prompt("Remove orphaned skills?")
-        .default(false)
-        .interact_opt()
-    {
-        Ok(Some(true)) => true,
-        _ => false,
-    }
+    matches!(
+        dialoguer::Confirm::new()
+            .with_prompt("Remove orphaned skills?")
+            .default(false)
+            .interact_opt(),
+        Ok(Some(true))
+    )
 }
 
 /// Execute the full sync plan: cleanup, installs, updates, orphan detection, and removal.
 ///
-/// Processes actions sequentially, warning on per-skill failures and continuing.
-/// After installs/updates, scans for global orphans (repos removed from manifest)
+/// Reads the consolidated lock file at `lock_path` at the start, passes it through
+/// all install/update/remove operations, writing it after each operation for crash safety.
+/// After installs/updates, scans the lock file for global orphans (repos removed from manifest)
 /// and combines with resolver Remove actions into a single batch prompt.
 ///
 /// Returns `Err(SyncFailed)` if any skill operations failed; Ok(()) otherwise.
@@ -350,11 +358,15 @@ pub fn execute_sync_plan(
     token: Option<&str>,
     branch_map: &HashMap<String, String>,
     manifest_repos: &HashSet<String>,
+    lock_path: &Path,
 ) -> crate::error::Result<()> {
     cleanup_stale_temp_dirs(target_dir);
 
     // Ensure target dir exists
     let _ = std::fs::create_dir_all(target_dir);
+
+    // Read consolidated lock file (returns empty if not found)
+    let mut lock_file = read_lock_file(lock_path).map_err(SkillsSyncError::Io)?;
 
     let mut failed_skills: Vec<String> = Vec::new();
     let mut succeeded: usize = 0;
@@ -369,7 +381,16 @@ pub fn execute_sync_plan(
             } => {
                 let dir_name = skill_dir_name(repo, subdirectory);
                 let branch = branch_map.get(repo).map(|s| s.as_str()).unwrap_or("main");
-                match execute_install(repo, subdirectory, remote_sha, branch, target_dir, token) {
+                match execute_install(
+                    repo,
+                    subdirectory,
+                    remote_sha,
+                    branch,
+                    target_dir,
+                    token,
+                    lock_path,
+                    &mut lock_file,
+                ) {
                     Ok(()) => {
                         println!("installed: {}", dir_name);
                         succeeded += 1;
@@ -388,7 +409,16 @@ pub fn execute_sync_plan(
             } => {
                 let dir_name = skill_dir_name(repo, subdirectory);
                 let branch = branch_map.get(repo).map(|s| s.as_str()).unwrap_or("main");
-                match execute_update(repo, subdirectory, new_sha, branch, target_dir, token) {
+                match execute_update(
+                    repo,
+                    subdirectory,
+                    new_sha,
+                    branch,
+                    target_dir,
+                    token,
+                    lock_path,
+                    &mut lock_file,
+                ) {
                     Ok(()) => {
                         println!("updated: {}", dir_name);
                         succeeded += 1;
@@ -410,7 +440,7 @@ pub fn execute_sync_plan(
     }
 
     // Build global orphan list (repos removed from manifest entirely)
-    let global_orphans = scan_orphans(target_dir, manifest_repos);
+    let global_orphans = scan_orphans(target_dir, manifest_repos, &lock_file);
 
     // Convert resolver Remove actions to OrphanSkill entries
     let mut all_orphans: Vec<OrphanSkill> = Vec::new();
@@ -424,10 +454,12 @@ pub fn execute_sync_plan(
         {
             let dir_name = skill_dir_name(repo, subdirectory);
             let dir_path = target_dir.join(&dir_name);
+            let key = skill_key(repo, subdirectory);
             all_orphans.push(OrphanSkill {
                 dir_path,
                 dir_name,
                 source: repo.clone(),
+                skill_key: key,
             });
         }
     }
@@ -451,8 +483,7 @@ pub fn execute_sync_plan(
         let confirmed = prompt_orphan_removal(&all_orphans);
         if confirmed {
             for orphan in &all_orphans {
-                let lock_path = crate::metadata::meta_path_for_skill(target_dir, &orphan.dir_name);
-                match execute_remove(&orphan.dir_path, Some(&lock_path)) {
+                match execute_remove(&orphan.dir_path, lock_path, &mut lock_file, &orphan.skill_key) {
                     Ok(()) => {
                         println!("removed: {}", orphan.dir_name);
                         succeeded += 1;
