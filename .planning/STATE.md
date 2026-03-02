@@ -100,9 +100,10 @@ None.
 | # | Description | Date | Commit | Directory |
 |---|-------------|------|--------|-----------|
 | 1 | Consolidate lock files into single lock file next to manifest | 2026-03-02 | ec0b4f5 | [1-consolidate-lock-files-into-single-lock-](./quick/1-consolidate-lock-files-into-single-lock-/) |
+| 2 | Add docs, tooling, and examples (README, examples/, scripts/test-sync.sh) | 2026-03-02 | 68907e5 | [2-add-some-docs-tooling-and-examples-for-e](./quick/2-add-some-docs-tooling-and-examples-for-e/) |
 
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 04-02-PLAN.md — Colored output, verbose SHA, release workflow, install script complete
+Stopped at: Completed quick-2 — README, example manifests, and integration test script
 Resume file: None
