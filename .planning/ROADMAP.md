@@ -27,7 +27,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. Running `skills-sync --init` produces a documented sample `.skills.toml` in the current directory
   2. Running `skills-sync` with a valid `.skills.toml` parses and validates all repo entries without panicking
   3. Running `skills-sync` with an invalid or missing manifest exits with a non-zero code and a human-readable error indicating what went wrong and how to fix it
-  4. A per-skill `.skills-sync-meta.json` file written during a simulated install contains source, SHA, and timestamps and is written atomically (via rename)
+  4. A per-skill `.skills.lock` file written during a simulated install contains source, SHA, and timestamps and is written atomically (via rename)
   5. Tool exits with code 0 when no error occurs and non-zero on any failure
 **Plans**: TBD
 
@@ -56,7 +56,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. An orphaned skill (on disk but not in manifest) triggers a removal prompt and is removed upon confirmation
   4. A network failure mid-install leaves no corrupted skill directory — re-running the tool completes the install cleanly
   5. An inaccessible repo is warned and skipped; all remaining repos continue to sync
-**Plans**: TBD
+**Plans**: 3 plans
+- [x] 03-01-PLAN.md — Sync engine with git subprocess operations for install, update, and remove
 
 ### Phase 4: CLI + UX
 **Goal**: A fully usable CLI with all flags working, color-coded output, progress feedback, and binary distribution via Homebrew and GitHub Releases
@@ -79,5 +80,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 0/TBD | Complete    | 2026-02-28 |
 | 2. GitHub + Resolver | 3/3 | Complete | 2026-02-28 |
-| 3. Sync Engine | 0/TBD | Not started | - |
+| 3. Sync Engine | 1/3 | In progress | - |
 | 4. CLI + UX | 0/TBD | Not started | - |

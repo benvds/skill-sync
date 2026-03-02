@@ -23,11 +23,11 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Sync Lifecycle
 
-- [ ] **SYNC-01**: Tool installs missing skills via shallow git clone (single-skill repos)
-- [ ] **SYNC-02**: Tool installs missing monorepo skills via sparse checkout to extract subdirectories
+- [x] **SYNC-01**: Tool installs missing skills via shallow git clone (single-skill repos)
+- [x] **SYNC-02**: Tool installs missing monorepo skills via sparse checkout to extract subdirectories
 - [ ] **SYNC-03**: Tool updates outdated skills by comparing local SHA (from metadata) against remote HEAD SHA
 - [ ] **SYNC-04**: Tool detects orphaned skills (installed but not in manifest) and prompts user for removal
-- [ ] **SYNC-05**: Tool writes `.skills-sync-meta.json` per installed skill with source, SHA, and timestamps
+- [ ] **SYNC-05**: Tool writes `.skills.lock` per installed skill with source, SHA, and timestamps
 - [ ] **SYNC-06**: Tool syncs to local target (`./.claude/skills/`) by default or global target (`~/.claude/skills/`) with `--global` flag
 - [ ] **SYNC-07**: Sync is idempotent — re-running with no changes produces no side effects
 
@@ -45,7 +45,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **ERR-01**: Missing manifest file produces error with hint to run `--init`
 - [ ] **ERR-02**: Invalid TOML syntax produces error with line number and description
 - [ ] **ERR-03**: Inaccessible/missing repos are warned and skipped; remaining repos continue
-- [ ] **ERR-04**: Network failures mid-sync leave no corrupted state; re-running resolves partial syncs
+- [x] **ERR-04**: Network failures mid-sync leave no corrupted state; re-running resolves partial syncs
 - [ ] **ERR-05**: Tool exits with code 0 on success and non-zero on any error
 - [ ] **ERR-06**: GitHub API requests include User-Agent header to avoid 403 responses
 
@@ -98,8 +98,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REPO-02 | Phase 2 | Pending |
 | REPO-03 | Phase 2 | Pending |
 | REPO-04 | Phase 2 | Pending |
-| SYNC-01 | Phase 3 | Pending |
-| SYNC-02 | Phase 3 | Pending |
+| SYNC-01 | Phase 3 | Complete |
+| SYNC-02 | Phase 3 | Complete |
 | SYNC-03 | Phase 2 | Pending |
 | SYNC-04 | Phase 3 | Pending |
 | SYNC-05 | Phase 1 | Pending |
@@ -114,7 +114,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | ERR-01 | Phase 1 | Pending |
 | ERR-02 | Phase 1 | Pending |
 | ERR-03 | Phase 3 | Pending |
-| ERR-04 | Phase 3 | Pending |
+| ERR-04 | Phase 3 | Complete |
 | ERR-05 | Phase 1 | Pending |
 | ERR-06 | Phase 2 | Pending |
 
