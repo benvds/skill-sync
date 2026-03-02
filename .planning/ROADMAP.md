@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation** - Crate scaffold, manifest parsing, metadata types, and error infrastructure (completed 2026-02-28)
 - [x] **Phase 2: GitHub + Resolver** - GitHub API integration and pure sync plan logic (completed 2026-02-28)
-- [ ] **Phase 3: Sync Engine** - Git operations, install/update/orphan flow, and failure safety
+- [x] **Phase 3: Sync Engine** - Git operations, install/update/orphan flow, and failure safety (completed 2026-03-02)
 - [ ] **Phase 4: CLI + UX** - Full CLI surface, flags, output polish, and distribution
 
 ## Phase Details
@@ -81,5 +81,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Foundation | 0/TBD | Complete    | 2026-02-28 |
 | 2. GitHub + Resolver | 3/3 | Complete | 2026-02-28 |
-| 3. Sync Engine | 2/3 | In progress | - |
+| 3. Sync Engine | 3/3 | Complete   | 2026-03-02 |
 | 4. CLI + UX | 0/TBD | Not started | - |

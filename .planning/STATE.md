@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-02T10:16:00.000Z"
+last_updated: "2026-03-02T10:23:17.000Z"
 progress:
   total_phases: 4
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
+  completed_plans: 9
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 3 of 4 (Sync Engine)
-Plan: 2 of 3 in current phase
+Plan: 3 of 3 in current phase (COMPLETE)
 Status: In progress
-Last activity: 2026-03-02 — Completed 03-02: Sync pipeline orchestration with orphan detection
+Last activity: 2026-03-02 — Completed 03-03: --global flag and conditional target_dir resolution
 
-Progress: [█████████░] 88%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [█████████░] 88%
 |-------|-------|-------|----------|
 | 01-foundation | 2 | ~24 min | ~12 min |
 | 02-github-api | 4 | ~48 min | ~12 min |
-| 03-sync-engine | 2 | ~24 min | ~12 min |
+| 03-sync-engine | 3 | ~26 min | ~9 min |
 
 **Recent Trend:**
 - Last 5 plans: consistent ~12 min each
@@ -65,6 +65,8 @@ Recent decisions affecting current work:
 - Always call execute_sync_plan unconditionally — handles empty/skip-only lists with cleanup and orphan scan
 - Resolver Remove actions and global orphan scan merged into single batch prompt to avoid two dialogs
 - Token cloned before GitHubClient::new() since client takes ownership; clone passed to sync engine
+- Use SyncFailed variant (not new variant) for home_dir() None case to avoid conflicting From<io::Error> impls
+- Resolve target_dir_buf before per-repo loop so load_local_metadata and execute_sync_plan share same resolved path
 
 ### Pending Todos
 
@@ -78,5 +80,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-02-PLAN.md — Sync pipeline orchestration complete
+Stopped at: Completed 03-03-PLAN.md — --global flag and conditional target_dir resolution complete
 Resume file: None
