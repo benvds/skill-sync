@@ -184,6 +184,67 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         }
     }
 
+    // Scan for global orphans (repos removed from manifest entirely)
+    // Must happen before dry-run check so dry-run output is complete
+    let lock_file_for_orphans = read_lock_file(&lock_path).map_err(SkillsSyncError::Io)?;
+    let global_orphans = sync::scan_orphans(target_dir, &manifest_repos, &lock_file_for_orphans);
+
+    // Add global orphan Remove actions to all_actions (skip any already covered by resolver)
+    for orphan in &global_orphans {
+        let already_covered = all_actions.iter().any(|a| {
+            if let resolver::SyncAction::Remove { repo, subdirectory, .. } = a {
+                sync::skill_dir_name(repo, subdirectory) == orphan.dir_name
+            } else {
+                false
+            }
+        });
+        if !already_covered {
+            all_actions.push(resolver::SyncAction::Remove {
+                repo: orphan.source.clone(),
+                subdirectory: None,
+                local_sha: String::new(),
+            });
+        }
+    }
+
+    // Dry-run short-circuit: print planned actions and exit without touching disk
+    if cli.dry_run {
+        for action in &all_actions {
+            match action {
+                resolver::SyncAction::Install { repo, subdirectory, .. } => {
+                    let name = resolver::skill_key(repo, subdirectory);
+                    println!("+ {} (install)", name);
+                }
+                resolver::SyncAction::Update { repo, subdirectory, old_sha, new_sha, .. } => {
+                    let name = resolver::skill_key(repo, subdirectory);
+                    if cli.verbose {
+                        println!(
+                            "~ {} (update: {}..{})",
+                            name,
+                            &old_sha[..8.min(old_sha.len())],
+                            &new_sha[..8.min(new_sha.len())]
+                        );
+                    } else {
+                        println!("~ {} (update)", name);
+                    }
+                }
+                resolver::SyncAction::Remove { repo, subdirectory, .. } => {
+                    let name = resolver::skill_key(repo, subdirectory);
+                    println!("- {} (remove)", name);
+                }
+                resolver::SyncAction::Skip { .. } => {}
+            }
+        }
+        let pending = all_actions
+            .iter()
+            .filter(|a| !matches!(a, resolver::SyncAction::Skip { .. }))
+            .count();
+        if pending > 0 {
+            std::process::exit(2);
+        }
+        return Ok(());
+    }
+
     // Report sync plan summary
     let installs = all_actions
         .iter()
@@ -219,6 +280,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         &branch_map,
         &manifest_repos,
         &lock_path,
+        cli.force,
     )?;
 
     // Exit non-zero if any repo failed at the API level (separate from sync failures)

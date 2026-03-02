@@ -327,9 +327,14 @@ pub fn scan_orphans(
 
 /// Prompt the user to confirm batch removal of orphaned skills.
 ///
+/// When `force` is true, auto-confirms without user interaction (for CI usage).
 /// Prints a list of orphans to stderr, then presents a Y/n prompt.
 /// Non-interactive terminals (no TTY) return false silently — no removal occurs.
-fn prompt_orphan_removal(orphans: &[OrphanSkill]) -> bool {
+fn prompt_orphan_removal(orphans: &[OrphanSkill], force: bool) -> bool {
+    if force {
+        return true;
+    }
+
     eprintln!("warning: {} orphaned skill(s) found:", orphans.len());
     for orphan in orphans {
         eprintln!("  {} ({})", orphan.dir_name, orphan.source);
@@ -359,6 +364,7 @@ pub fn execute_sync_plan(
     branch_map: &HashMap<String, String>,
     manifest_repos: &HashSet<String>,
     lock_path: &Path,
+    force: bool,
 ) -> crate::error::Result<()> {
     cleanup_stale_temp_dirs(target_dir);
 
@@ -480,7 +486,7 @@ pub fn execute_sync_plan(
 
     // Batch orphan removal with single prompt
     if !all_orphans.is_empty() {
-        let confirmed = prompt_orphan_removal(&all_orphans);
+        let confirmed = prompt_orphan_removal(&all_orphans, force);
         if confirmed {
             for orphan in &all_orphans {
                 match execute_remove(&orphan.dir_path, lock_path, &mut lock_file, &orphan.skill_key) {
