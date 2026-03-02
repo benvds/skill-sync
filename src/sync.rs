@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use crate::error::SkillsSyncError;
-use crate::metadata::{write_metadata_atomic, SkillMeta, META_FILENAME};
+use crate::metadata::{write_metadata_atomic, SkillMeta};
 
 // ── Directory naming ──────────────────────────────────────────────────────────
 
@@ -173,7 +173,7 @@ pub fn execute_install(
     }
 
     // Write metadata ONLY after successful rename
-    let meta_path = final_path.join(META_FILENAME);
+    let meta_path = crate::metadata::meta_path_for_skill(target_dir, &dir_name);
     let meta = match subdirectory {
         None => SkillMeta::new(repo, remote_sha),
         Some(subdir) => SkillMeta::new(repo, remote_sha).with_subdirectory(subdir.clone()),
@@ -198,8 +198,8 @@ pub fn execute_update(
     let dir_name = skill_dir_name(repo, subdirectory);
     let existing_path = target_dir.join(&dir_name);
 
-    // Preserve installed_at from old metadata
-    let old_meta_path = existing_path.join(crate::metadata::META_FILENAME);
+    // Preserve installed_at from old metadata (read from sibling lock file)
+    let old_meta_path = crate::metadata::meta_path_for_skill(target_dir, &dir_name);
     let installed_at = crate::metadata::read_metadata(&old_meta_path)
         .ok()
         .map(|m| m.installed_at)
@@ -214,8 +214,8 @@ pub fn execute_update(
     // Re-install fresh
     execute_install(repo, subdirectory, new_sha, branch, target_dir, token)?;
 
-    // Patch installed_at back
-    let meta_path = target_dir.join(&dir_name).join(crate::metadata::META_FILENAME);
+    // Patch installed_at back (write to sibling lock file)
+    let meta_path = crate::metadata::meta_path_for_skill(target_dir, &dir_name);
     if let Ok(mut meta) = crate::metadata::read_metadata(&meta_path) {
         meta.installed_at = installed_at;
         let _ = crate::metadata::write_metadata_atomic(&meta_path, &meta);
@@ -224,18 +224,21 @@ pub fn execute_update(
     Ok(())
 }
 
-/// Remove an installed skill directory.
+/// Remove an installed skill directory and its sibling lock file.
 ///
 /// Returns `RemoveFailed` if the directory cannot be removed (including if it
-/// does not exist).
-pub fn execute_remove(skill_path: &Path) -> crate::error::Result<()> {
-    std::fs::remove_dir_all(skill_path).map_err(|e| {
-        SkillsSyncError::RemoveFailed {
-            path: skill_path.to_owned(),
-            source: e,
-        }
-        .into()
-    })
+/// does not exist). The lock file removal is best-effort — if the lock file
+/// doesn't exist or fails to delete, the skill directory removal still succeeds.
+pub fn execute_remove(skill_path: &Path, lock_path: Option<&Path>) -> crate::error::Result<()> {
+    std::fs::remove_dir_all(skill_path).map_err(|e| SkillsSyncError::RemoveFailed {
+        path: skill_path.to_owned(),
+        source: e,
+    })?;
+    // Best-effort lock file cleanup
+    if let Some(lp) = lock_path {
+        let _ = std::fs::remove_file(lp);
+    }
+    Ok(())
 }
 
 // ── Orphan detection and cleanup ──────────────────────────────────────────────
@@ -294,7 +297,7 @@ pub fn scan_orphans(target_dir: &Path, manifest_repos: &HashSet<String>) -> Vec<
             continue;
         }
 
-        let meta_path = path.join(META_FILENAME);
+        let meta_path = crate::metadata::meta_path_for_skill(target_dir, &name_str);
         if let Ok(meta) = crate::metadata::read_metadata(&meta_path) {
             if !manifest_repos.contains(&meta.source) {
                 orphans.push(OrphanSkill {
@@ -444,7 +447,8 @@ pub fn execute_sync_plan(
         let confirmed = prompt_orphan_removal(&all_orphans);
         if confirmed {
             for orphan in &all_orphans {
-                match execute_remove(&orphan.dir_path) {
+                let lock_path = crate::metadata::meta_path_for_skill(target_dir, &orphan.dir_name);
+                match execute_remove(&orphan.dir_path, Some(&lock_path)) {
                     Ok(()) => {
                         println!("removed: {}", orphan.dir_name);
                         succeeded += 1;

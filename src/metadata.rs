@@ -1,11 +1,23 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tempfile::NamedTempFile;
 
-/// Filename for per-skill lock files.
+/// Filename for per-skill lock files (legacy, kept for backward compatibility).
 pub const META_FILENAME: &str = ".skills.lock";
+
+/// File extension for per-skill lock files (stored as siblings to skill directories).
+pub const META_EXTENSION: &str = "lock";
+
+/// Compute the metadata lock file path for a skill, stored as a sibling
+/// to the skill directory at the target_dir level.
+///
+/// Example: for skill dir "owner--repo" in target_dir ".claude/skills/",
+/// returns ".claude/skills/owner--repo.lock"
+pub fn meta_path_for_skill(target_dir: &Path, dir_name: &str) -> PathBuf {
+    target_dir.join(format!("{}.{}", dir_name, META_EXTENSION))
+}
 
 /// Per-skill metadata tracking installation state.
 ///

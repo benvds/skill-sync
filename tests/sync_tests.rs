@@ -1,3 +1,4 @@
+use skills_sync::metadata::meta_path_for_skill;
 use skills_sync::sync::{build_clone_url, execute_remove, skill_dir_name};
 use tempfile::TempDir;
 
@@ -39,6 +40,22 @@ fn build_clone_url_with_token() {
     );
 }
 
+// --- meta_path_for_skill tests ---
+
+#[test]
+fn meta_path_single() {
+    let target_dir = std::path::Path::new("/tmp/skills");
+    let result = meta_path_for_skill(target_dir, "owner--repo");
+    assert_eq!(result, std::path::PathBuf::from("/tmp/skills/owner--repo.lock"));
+}
+
+#[test]
+fn meta_path_monorepo() {
+    let target_dir = std::path::Path::new("/tmp/skills");
+    let result = meta_path_for_skill(target_dir, "owner--repo--subdir");
+    assert_eq!(result, std::path::PathBuf::from("/tmp/skills/owner--repo--subdir.lock"));
+}
+
 // --- execute_remove tests ---
 
 #[test]
@@ -50,13 +67,36 @@ fn execute_remove_deletes_directory() {
     std::fs::write(skill_dir.join("README.md"), "hello").unwrap();
 
     assert!(skill_dir.exists());
-    execute_remove(&skill_dir).expect("execute_remove should succeed");
+    execute_remove(&skill_dir, None).expect("execute_remove should succeed");
     assert!(!skill_dir.exists());
 }
 
 #[test]
 fn execute_remove_nonexistent_returns_error() {
     let path = std::path::Path::new("/tmp/skills-sync-nonexistent-skill-xyz");
-    let result = execute_remove(path);
+    let result = execute_remove(path, None);
     assert!(result.is_err(), "execute_remove on nonexistent path should return error");
+}
+
+#[test]
+fn execute_remove_with_lock_file() {
+    let tmp = TempDir::new().unwrap();
+    let target_dir = tmp.path();
+
+    // Create a skill directory
+    let skill_dir = target_dir.join("owner--repo");
+    std::fs::create_dir_all(&skill_dir).unwrap();
+    std::fs::write(skill_dir.join("SKILL.md"), "# Skill").unwrap();
+
+    // Create the sibling lock file
+    let lock_path = target_dir.join("owner--repo.lock");
+    std::fs::write(&lock_path, "schema_version = 1\nsource = \"owner/repo\"\nsha = \"abc\"\n").unwrap();
+
+    assert!(skill_dir.exists());
+    assert!(lock_path.exists());
+
+    execute_remove(&skill_dir, Some(&lock_path)).expect("execute_remove should succeed");
+
+    assert!(!skill_dir.exists(), "skill directory should be removed");
+    assert!(!lock_path.exists(), "sibling lock file should be removed");
 }
