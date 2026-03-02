@@ -15,4 +15,8 @@ pub struct Cli {
     /// Show verbose output
     #[arg(long)]
     pub verbose: bool,
+
+    /// Sync to global target (~/.claude/skills/) instead of local (.claude/skills/)
+    #[arg(long)]
+    pub global: bool,
 }
