@@ -22,6 +22,14 @@ fn skill_dir_name_special_chars() {
     assert_eq!(skill_dir_name("my.org/my-repo", &None), "my.org--my-repo");
 }
 
+#[test]
+fn skill_dir_name_multi_segment_subdir() {
+    assert_eq!(
+        skill_dir_name("anthropics/skills", &Some("skills/skill-creator".to_string())),
+        "anthropics--skills--skills--skill-creator"
+    );
+}
+
 // --- build_clone_url tests ---
 
 #[test]

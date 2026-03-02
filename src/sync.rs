@@ -10,13 +10,17 @@ use crate::metadata::{write_metadata_atomic, SkillMeta};
 /// Convert a GitHub `owner/repo` slug (and optional subdirectory) to a
 /// filesystem-safe flat directory name using `--` as separator.
 ///
+/// Multi-segment subdirectory paths are flattened: slashes within the subdir
+/// are also replaced with `--` to produce a flat directory name.
+///
 /// Examples:
-///   `owner/repo`, `None`       → `owner--repo`
-///   `owner/repo`, `Some(sub)`  → `owner--repo--sub`
+///   `owner/repo`, `None`                   → `owner--repo`
+///   `owner/repo`, `Some("sub")`            → `owner--repo--sub`
+///   `owner/repo`, `Some("skills/creator")` → `owner--repo--skills--creator`
 pub fn skill_dir_name(repo: &str, subdirectory: &Option<String>) -> String {
     let base = repo.replace('/', "--");
     match subdirectory {
-        Some(subdir) => format!("{base}--{subdir}"),
+        Some(subdir) => format!("{base}--{}", subdir.replace('/', "--")),
         None => base,
     }
 }

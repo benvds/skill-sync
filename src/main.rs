@@ -4,6 +4,7 @@ use skills_sync::config::discover_manifest;
 use skills_sync::error::SkillsSyncError;
 use skills_sync::github::{self, AuthMethod};
 use skills_sync::init::run_init;
+use skills_sync::manifest::parse_repo_entry;
 use skills_sync::metadata;
 use skills_sync::resolver;
 use skills_sync::sync;
@@ -78,11 +79,13 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     let mut manifest_repos: HashSet<String> = HashSet::new();
 
     for repo_entry in &manifest.skills.repos {
-        // Track all repos from manifest (before any early continues)
-        manifest_repos.insert(repo_entry.clone());
-        // Split owner/repo
-        let parts: Vec<&str> = repo_entry.splitn(2, '/').collect();
-        let (owner, repo_name) = (parts[0], parts[1]);
+        // Parse entry into (owner, repo_name, optional subdirectory)
+        let (owner, repo_name, manifest_subdir) = parse_repo_entry(repo_entry);
+
+        // Use owner/repo slug (not full entry) for manifest_repos so orphan detection
+        // matches against meta.source which also stores owner/repo
+        let repo_slug = format!("{}/{}", owner, repo_name);
+        manifest_repos.insert(repo_slug.clone());
 
         // Get repo info (default branch)
         let repo_info = match client.get_repo_info(owner, repo_name) {
@@ -94,18 +97,18 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
                         return Err(e);
                     }
                 }
-                eprintln!("warning: {} — {}, skipping", repo_entry, e);
-                failed_repos.push((repo_entry.clone(), format!("{}", e)));
+                eprintln!("warning: {} — {}, skipping", repo_slug, e);
+                failed_repos.push((repo_slug.clone(), format!("{}", e)));
                 continue;
             }
         };
 
-        branch_map.insert(repo_entry.clone(), repo_info.default_branch.clone());
+        branch_map.insert(repo_slug.clone(), repo_info.default_branch.clone());
 
         if cli.verbose {
             eprintln!(
                 "{}: default branch = {}",
-                repo_entry, repo_info.default_branch
+                repo_slug, repo_info.default_branch
             );
         }
 
@@ -118,18 +121,28 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
                         return Err(e);
                     }
                 }
-                eprintln!("warning: {} — {}, skipping", repo_entry, e);
-                failed_repos.push((repo_entry.clone(), format!("{}", e)));
+                eprintln!("warning: {} — {}, skipping", repo_slug, e);
+                failed_repos.push((repo_slug.clone(), format!("{}", e)));
                 continue;
             }
         };
 
-        // Detect skills
-        let remote_skills = resolver::detect_skills(&tree);
-        if remote_skills.is_empty() {
-            eprintln!("warning: {} — no SKILL.md found, skipping", repo_entry);
-            continue;
-        }
+        // Detect or use specified skills
+        let remote_skills = if let Some(subdir) = manifest_subdir {
+            // Manifest specifies exact subdirectory — skip Trees API detection
+            vec![resolver::RemoteSkill {
+                subdirectory: Some(subdir.to_string()),
+                tree_sha: tree.sha.clone(),
+            }]
+        } else {
+            // No subdirectory specified — detect skills via Trees API
+            let detected = resolver::detect_skills(&tree);
+            if detected.is_empty() {
+                eprintln!("warning: {} — no SKILL.md found, skipping", repo_slug);
+                continue;
+            }
+            detected
+        };
 
         if cli.verbose {
             let skill_type = if remote_skills.len() == 1
@@ -139,15 +152,15 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
             } else {
                 format!("monorepo ({} skills)", remote_skills.len())
             };
-            eprintln!("{}: detected as {}", repo_entry, skill_type);
+            eprintln!("{}: detected as {}", repo_slug, skill_type);
         }
 
-        // Load local metadata for this repo's skills
-        let local_metadata = load_local_metadata(repo_entry, target_dir);
+        // Load local metadata using repo_slug (owner/repo), not full entry
+        let local_metadata = load_local_metadata(&repo_slug, target_dir);
 
         // Build repo skills for resolver
         let repo_skills = resolver::RepoSkills {
-            repo: repo_entry.clone(),
+            repo: repo_slug.clone(),
             skills: remote_skills,
             commit_sha: tree.sha.clone(),
         };

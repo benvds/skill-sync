@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::LazyLock;
 
 static REPO_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$").unwrap()
+    Regex::new(r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+(/[a-zA-Z0-9._-]+)*$").unwrap()
 });
 
 #[derive(Debug, Deserialize)]
@@ -19,9 +19,27 @@ pub struct Skills {
     pub repos: Vec<String>,
 }
 
+/// Parse a manifest repo entry into (owner, repo_name, optional subdirectory).
+///
+/// Format: `owner/repo` or `owner/repo/path/to/skill`
+/// The first two path segments are always owner and repo.
+/// Any remaining segments form the subdirectory path.
+///
+/// Examples:
+///   "anthropics/skills"                      → ("anthropics", "skills", None)
+///   "anthropics/skills/skills/skill-creator" → ("anthropics", "skills", Some("skills/skill-creator"))
+///   "owner/repo/a/b/c"                       → ("owner", "repo", Some("a/b/c"))
+pub fn parse_repo_entry(entry: &str) -> (&str, &str, Option<&str>) {
+    let mut parts = entry.splitn(3, '/');
+    let owner = parts.next().unwrap_or("");
+    let repo = parts.next().unwrap_or("");
+    let subdir = parts.next(); // None if only owner/repo
+    (owner, repo, subdir)
+}
+
 /// Parse and validate a .skills.toml manifest.
 ///
-/// Validates: TOML syntax, repo format (owner/repo pattern), duplicates.
+/// Validates: TOML syntax, repo format (owner/repo or owner/repo/subdir pattern), duplicates.
 /// Auto-trims whitespace and trailing slashes.
 /// Warns on unknown keys and empty repos list.
 pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Manifest> {
