@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: in_progress
-last_updated: "2026-03-02T10:12:00.000Z"
+last_updated: "2026-03-02T10:16:00.000Z"
 progress:
   total_phases: 4
   completed_phases: 2
   total_plans: 9
-  completed_plans: 7
+  completed_plans: 8
 ---
 
 # Project State
@@ -23,11 +23,11 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 ## Current Position
 
 Phase: 3 of 4 (Sync Engine)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In progress
-Last activity: 2026-03-02 — Completed 03-01: Sync engine with git subprocess operations
+Last activity: 2026-03-02 — Completed 03-02: Sync pipeline orchestration with orphan detection
 
-Progress: [████████░░] 77%
+Progress: [█████████░] 88%
 
 ## Performance Metrics
 
@@ -42,7 +42,7 @@ Progress: [████████░░] 77%
 |-------|-------|-------|----------|
 | 01-foundation | 2 | ~24 min | ~12 min |
 | 02-github-api | 4 | ~48 min | ~12 min |
-| 03-sync-engine | 1 | ~12 min | ~12 min |
+| 03-sync-engine | 2 | ~24 min | ~12 min |
 
 **Recent Trend:**
 - Last 5 plans: consistent ~12 min each
@@ -62,6 +62,9 @@ Recent decisions affecting current work:
 - Per-skill metadata files over central lock — simpler orphan detection, atomic per-skill writes
 - New sync error variants use #[source] not #[from] to avoid conflicting From<io::Error> impl
 - execute_install/update full integration tests deferred to manual cargo run (require real git + network)
+- Always call execute_sync_plan unconditionally — handles empty/skip-only lists with cleanup and orphan scan
+- Resolver Remove actions and global orphan scan merged into single batch prompt to avoid two dialogs
+- Token cloned before GitHubClient::new() since client takes ownership; clone passed to sync engine
 
 ### Pending Todos
 
@@ -75,5 +78,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed 03-01-PLAN.md — Sync engine module complete
+Stopped at: Completed 03-02-PLAN.md — Sync pipeline orchestration complete
 Resume file: None
