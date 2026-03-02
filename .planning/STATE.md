@@ -25,7 +25,7 @@ See: .planning/PROJECT.md (updated 2026-02-28)
 Phase: 4 of 4 (CLI + UX)
 Plan: 2 of 3 in current phase (COMPLETE)
 Status: In progress
-Last activity: 2026-03-02 - Completed 04-02: Colored output (owo-colors), verbose SHA comparisons, GitHub Actions release workflow, install script
+Last activity: 2026-03-02 - Completed quick task 2: add some docs, tooling and examples for easy manual testing
 
 Progress: [██████████] 100%
 
