@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-02T14:45:00.873Z"
+last_updated: "2026-03-02T14:56:43.293Z"
 progress:
   total_phases: 3
   completed_phases: 3
@@ -73,6 +73,9 @@ Recent decisions affecting current work:
 - manifest_repos and branch_map keyed by owner/repo slug (not full manifest path) so orphan detection matches meta.source
 - When manifest specifies subdir, Trees API detect_skills() is bypassed; specified subdir used directly for RemoteSkill
 - skill_dir_name uses subdir.replace('/', "--") to flatten multi-segment subdirs into flat filesystem paths
+- [Phase quick-1]: Lock file path derived from manifest path via with_extension('lock') — .skills.toml -> .skills.lock
+- [Phase quick-1]: schema_version moved from SkillMeta to LockFile only — per-entry schema version removed, version lives at file level
+- [Phase quick-1]: LockFile passed as &mut through entire sync pipeline for crash-safe per-operation writes
 
 ### Pending Todos
 
