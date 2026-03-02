@@ -23,7 +23,7 @@ pub enum SkillsSyncError {
     #[error("invalid repo format: `{repo}`")]
     #[diagnostic(
         code(skills_sync::manifest::invalid_repo),
-        help("Repos must match `owner/repo` format (e.g., `anthropics/claude-skills`)")
+        help("Repos must match `owner/repo` or `owner/repo/subdir` format (e.g., `anthropics/skills` or `anthropics/skills/skills/pdf`)")
     )]
     InvalidRepo { repo: String },
 

@@ -32,12 +32,21 @@ const INIT_TEMPLATE: &str = r#"# ===============================================
 #   Monorepos contain subdirectories, each with their own SKILL.md.
 #   skills-sync detects the layout automatically.
 #
+#   For monorepo skills, specify the subdirectory path:
+#
+#     [skills]
+#     repos = [
+#         "anthropics/skills/skills/pdf",     # specific skill in a monorepo
+#         "anthropics/skills/skills/docx",     # another skill from same monorepo
+#     ]
+#
 # -- Examples -----------------------------------------------------------------
 #
 #   Uncomment the repos below to try them, or add your own:
 #
-#     # "anthropics/claude-skills"      # single-skill repo example
-#     # "example-org/skill-collection"  # monorepo with multiple skills
+#     # "anthropics/claude-skills"                    # single-skill repo
+#     # "example-org/skill-collection"                # monorepo (auto-detect)
+#     # "anthropics/skills/skills/skill-creator",     # specific monorepo skill
 #
 # ============================================================================
 
