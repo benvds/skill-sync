@@ -220,24 +220,29 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
 
 /// Load local metadata for skills from a specific repo.
 ///
-/// Scans the given target_dir for existing metadata files and returns
-/// those matching the given repo.
+/// Scans the given target_dir for sibling lock files (*.lock) and returns
+/// those matching the given repo. Lock files are stored as siblings to skill
+/// directories at the target_dir level (e.g., target_dir/owner--repo.lock).
 fn load_local_metadata(repo: &str, target_dir: &std::path::Path) -> HashMap<String, metadata::SkillMeta> {
     let mut result = HashMap::new();
-    let skills_dir = target_dir;
 
-    if !skills_dir.exists() {
+    if !target_dir.exists() {
         return result;
     }
 
-    if let Ok(entries) = std::fs::read_dir(skills_dir) {
+    if let Ok(entries) = std::fs::read_dir(target_dir) {
         for entry in entries.flatten() {
-            let meta_path = entry.path().join(metadata::META_FILENAME);
-            if meta_path.exists() {
-                if let Ok(meta) = metadata::read_metadata(&meta_path) {
-                    if meta.source == repo {
-                        let key = skill_key(repo, &meta.subdirectory);
-                        result.insert(key, meta);
+            let path = entry.path();
+            // Look for sibling lock files (*.lock) instead of lock files inside directories
+            if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    if ext == metadata::META_EXTENSION {
+                        if let Ok(meta) = metadata::read_metadata(&path) {
+                            if meta.source == repo {
+                                let key = skill_key(repo, &meta.subdirectory);
+                                result.insert(key, meta);
+                            }
+                        }
                     }
                 }
             }
