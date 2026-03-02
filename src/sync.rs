@@ -362,6 +362,9 @@ fn prompt_orphan_removal(orphans: &[OrphanSkill], force: bool) -> bool {
 /// After installs/updates, scans the lock file for global orphans (repos removed from manifest)
 /// and combines with resolver Remove actions into a single batch prompt.
 ///
+/// When `verbose` is true, prints per-skill SHA details to stderr before each operation:
+/// installs show target SHA, updates show old..new SHA comparison, skips show current SHA.
+///
 /// Returns `Err(SyncFailed)` if any skill operations failed; Ok(()) otherwise.
 pub fn execute_sync_plan(
     actions: &[crate::resolver::SyncAction],
