@@ -2,6 +2,8 @@ use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
+use owo_colors::{OwoColorize, Stream};
+
 use crate::error::SkillsSyncError;
 use crate::metadata::{read_lock_file, write_lock_file_atomic, LockFile, SkillMeta};
 use crate::resolver::skill_key;
@@ -335,7 +337,11 @@ fn prompt_orphan_removal(orphans: &[OrphanSkill], force: bool) -> bool {
         return true;
     }
 
-    eprintln!("warning: {} orphaned skill(s) found:", orphans.len());
+    eprintln!(
+        "{} {} orphaned skill(s) found:",
+        "warning:".if_supports_color(Stream::Stderr, |t| t.yellow()),
+        orphans.len()
+    );
     for orphan in orphans {
         eprintln!("  {} ({})", orphan.dir_name, orphan.source);
     }
@@ -365,6 +371,7 @@ pub fn execute_sync_plan(
     manifest_repos: &HashSet<String>,
     lock_path: &Path,
     force: bool,
+    verbose: bool,
 ) -> crate::error::Result<()> {
     cleanup_stale_temp_dirs(target_dir);
 
@@ -375,7 +382,9 @@ pub fn execute_sync_plan(
     let mut lock_file = read_lock_file(lock_path).map_err(SkillsSyncError::Io)?;
 
     let mut failed_skills: Vec<String> = Vec::new();
-    let mut succeeded: usize = 0;
+    let mut install_count: usize = 0;
+    let mut update_count: usize = 0;
+    let mut remove_count: usize = 0;
     let mut remove_actions: Vec<&crate::resolver::SyncAction> = Vec::new();
 
     for action in actions {
@@ -387,6 +396,9 @@ pub fn execute_sync_plan(
             } => {
                 let dir_name = skill_dir_name(repo, subdirectory);
                 let branch = branch_map.get(repo).map(|s| s.as_str()).unwrap_or("main");
+                if verbose {
+                    eprintln!("  {} -> {}", dir_name, &remote_sha[..8.min(remote_sha.len())]);
+                }
                 match execute_install(
                     repo,
                     subdirectory,
@@ -398,11 +410,20 @@ pub fn execute_sync_plan(
                     &mut lock_file,
                 ) {
                     Ok(()) => {
-                        println!("installed: {}", dir_name);
-                        succeeded += 1;
+                        println!(
+                            "{} {}",
+                            "installed:".if_supports_color(Stream::Stdout, |t| t.green()),
+                            dir_name
+                        );
+                        install_count += 1;
                     }
                     Err(e) => {
-                        eprintln!("warning: failed to install {}: {}", dir_name, e);
+                        eprintln!(
+                            "{} {}: {}",
+                            "failed:".if_supports_color(Stream::Stderr, |t| t.red()),
+                            dir_name,
+                            e
+                        );
                         failed_skills.push(dir_name);
                     }
                 }
@@ -410,11 +431,19 @@ pub fn execute_sync_plan(
             crate::resolver::SyncAction::Update {
                 repo,
                 subdirectory,
+                old_sha,
                 new_sha,
-                ..
             } => {
                 let dir_name = skill_dir_name(repo, subdirectory);
                 let branch = branch_map.get(repo).map(|s| s.as_str()).unwrap_or("main");
+                if verbose {
+                    eprintln!(
+                        "  {} {} -> {}",
+                        dir_name,
+                        &old_sha[..8.min(old_sha.len())],
+                        &new_sha[..8.min(new_sha.len())]
+                    );
+                }
                 match execute_update(
                     repo,
                     subdirectory,
@@ -426,11 +455,20 @@ pub fn execute_sync_plan(
                     &mut lock_file,
                 ) {
                     Ok(()) => {
-                        println!("updated: {}", dir_name);
-                        succeeded += 1;
+                        println!(
+                            "{} {}",
+                            "updated:".if_supports_color(Stream::Stdout, |t| t.yellow()),
+                            dir_name
+                        );
+                        update_count += 1;
                     }
                     Err(e) => {
-                        eprintln!("warning: failed to update {}: {}", dir_name, e);
+                        eprintln!(
+                            "{} {}: {}",
+                            "failed:".if_supports_color(Stream::Stderr, |t| t.red()),
+                            dir_name,
+                            e
+                        );
                         failed_skills.push(dir_name);
                     }
                 }
@@ -439,8 +477,11 @@ pub fn execute_sync_plan(
                 // Collect for batch removal with global orphans
                 remove_actions.push(action);
             }
-            crate::resolver::SyncAction::Skip { .. } => {
-                // No action needed
+            crate::resolver::SyncAction::Skip { repo, subdirectory, sha } => {
+                if verbose {
+                    let dir_name = skill_dir_name(repo, subdirectory);
+                    eprintln!("  skip: {} ({})", dir_name, &sha[..8.min(sha.len())]);
+                }
             }
         }
     }
@@ -491,11 +532,20 @@ pub fn execute_sync_plan(
             for orphan in &all_orphans {
                 match execute_remove(&orphan.dir_path, lock_path, &mut lock_file, &orphan.skill_key) {
                     Ok(()) => {
-                        println!("removed: {}", orphan.dir_name);
-                        succeeded += 1;
+                        println!(
+                            "{} {}",
+                            "removed:".if_supports_color(Stream::Stdout, |t| t.green()),
+                            orphan.dir_name
+                        );
+                        remove_count += 1;
                     }
                     Err(e) => {
-                        eprintln!("warning: failed to remove {}: {}", orphan.dir_name, e);
+                        eprintln!(
+                            "{} {}: {}",
+                            "failed:".if_supports_color(Stream::Stderr, |t| t.red()),
+                            orphan.dir_name,
+                            e
+                        );
                         failed_skills.push(orphan.dir_name.clone());
                     }
                 }
@@ -504,17 +554,19 @@ pub fn execute_sync_plan(
     }
 
     let failed_count = failed_skills.len();
-    eprintln!(
-        "sync complete: {} succeeded, {} failed",
-        succeeded, failed_count
+    let summary = format!(
+        "sync complete: {} installed, {} updated, {} removed",
+        install_count, update_count, remove_count
     );
-
     if failed_count > 0 {
+        println!("{}", summary.if_supports_color(Stream::Stdout, |t| t.red()));
         return Err(SkillsSyncError::SyncFailed {
             repo: "multiple".to_string(),
             reason: format!("{} skill(s) failed to sync", failed_count),
         }
         .into());
+    } else {
+        println!("{}", summary.if_supports_color(Stream::Stdout, |t| t.green()));
     }
 
     Ok(())

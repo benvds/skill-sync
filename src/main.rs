@@ -1,4 +1,5 @@
 use clap::Parser;
+use owo_colors::{OwoColorize, Stream};
 use skills_sync::cli::Cli;
 use skills_sync::config::discover_manifest;
 use skills_sync::error::SkillsSyncError;
@@ -48,7 +49,10 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     // Discover GitHub authentication
     let (token, auth_method) = github::discover_token();
     if matches!(auth_method, AuthMethod::Unauthenticated) {
-        eprintln!("warning: running unauthenticated (60 requests/hour limit)");
+        eprintln!(
+            "{} running unauthenticated (60 requests/hour limit)",
+            "warning:".if_supports_color(Stream::Stderr, |t| t.yellow())
+        );
         eprintln!(
             "  hint: set GITHUB_TOKEN or install gh CLI for 5,000 requests/hour"
         );
@@ -103,7 +107,12 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
                         return Err(e);
                     }
                 }
-                eprintln!("warning: {} — {}, skipping", repo_slug, e);
+                eprintln!(
+                    "{} {} — {}, skipping",
+                    "warning:".if_supports_color(Stream::Stderr, |t| t.yellow()),
+                    repo_slug,
+                    e
+                );
                 failed_repos.push((repo_slug.clone(), format!("{}", e)));
                 continue;
             }
@@ -127,7 +136,12 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
                         return Err(e);
                     }
                 }
-                eprintln!("warning: {} — {}, skipping", repo_slug, e);
+                eprintln!(
+                    "{} {} — {}, skipping",
+                    "warning:".if_supports_color(Stream::Stderr, |t| t.yellow()),
+                    repo_slug,
+                    e
+                );
                 failed_repos.push((repo_slug.clone(), format!("{}", e)));
                 continue;
             }
@@ -144,7 +158,11 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
             // No subdirectory specified — detect skills via Trees API
             let detected = resolver::detect_skills(&tree);
             if detected.is_empty() {
-                eprintln!("warning: {} — no SKILL.md found, skipping", repo_slug);
+                eprintln!(
+                    "{} {} — no SKILL.md found, skipping",
+                    "warning:".if_supports_color(Stream::Stderr, |t| t.yellow()),
+                    repo_slug
+                );
                 continue;
             }
             detected
@@ -213,24 +231,37 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
             match action {
                 resolver::SyncAction::Install { repo, subdirectory, .. } => {
                     let name = resolver::skill_key(repo, subdirectory);
-                    println!("+ {} (install)", name);
+                    println!(
+                        "{} {} (install)",
+                        "+".if_supports_color(Stream::Stdout, |t| t.green()),
+                        name
+                    );
                 }
-                resolver::SyncAction::Update { repo, subdirectory, old_sha, new_sha, .. } => {
+                resolver::SyncAction::Update { repo, subdirectory, old_sha, new_sha } => {
                     let name = resolver::skill_key(repo, subdirectory);
                     if cli.verbose {
                         println!(
-                            "~ {} (update: {}..{})",
+                            "{} {} (update: {}..{})",
+                            "~".if_supports_color(Stream::Stdout, |t| t.yellow()),
                             name,
                             &old_sha[..8.min(old_sha.len())],
                             &new_sha[..8.min(new_sha.len())]
                         );
                     } else {
-                        println!("~ {} (update)", name);
+                        println!(
+                            "{} {} (update)",
+                            "~".if_supports_color(Stream::Stdout, |t| t.yellow()),
+                            name
+                        );
                     }
                 }
                 resolver::SyncAction::Remove { repo, subdirectory, .. } => {
                     let name = resolver::skill_key(repo, subdirectory);
-                    println!("- {} (remove)", name);
+                    println!(
+                        "{} {} (remove)",
+                        "-".if_supports_color(Stream::Stdout, |t| t.red()),
+                        name
+                    );
                 }
                 resolver::SyncAction::Skip { .. } => {}
             }
@@ -269,7 +300,11 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
             installs, updates, removes, skips
         );
     } else if skips > 0 {
-        println!("everything up to date ({} skills)", skips);
+        println!(
+            "{}",
+            format!("everything up to date ({} skills)", skips)
+                .if_supports_color(Stream::Stdout, |t| t.green())
+        );
     }
 
     // Execute sync plan (handles install, update, remove, orphan detection, and cleanup)
@@ -281,6 +316,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         &manifest_repos,
         &lock_path,
         cli.force,
+        cli.verbose,
     )?;
 
     // Exit non-zero if any repo failed at the API level (separate from sync failures)
