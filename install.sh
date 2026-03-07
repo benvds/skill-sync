@@ -2,14 +2,12 @@
 # install.sh — Download and install skills-sync from GitHub Releases
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/OWNER/skills-sync/main/install.sh | sh
-#
-# TODO: Replace OWNER with the actual GitHub account name before first release.
+#   curl -fsSL https://raw.githubusercontent.com/benvds/skills-sync/main/install.sh | sh
 
 set -e
 
-# Repository owner/name on GitHub
-REPO="OWNER/skills-sync"
+# Repository benvds/name on GitHub
+REPO="benvds/skills-sync"
 BINARY="skills-sync"
 INSTALL_DIR="${HOME}/.local/bin"
 
