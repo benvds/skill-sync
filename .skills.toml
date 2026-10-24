@@ -10,7 +10,7 @@
 #   skills-sync              Sync all repos listed below
 #   skills-sync --dry-run    Preview changes without applying
 #   skills-sync --verbose    Show detailed sync output
-#   skills-sync --global     Sync to ~/.claude/skills/ instead of local
+#   skills-sync --global     Sync to ~/.agents/skills/ instead of local
 #
 # -- Format -------------------------------------------------------------------
 #
@@ -40,5 +40,5 @@ repos = [
   # Add your skill repos here, one per line:
   # "owner/repo",
   "anthropics/skills/skills/skill-creator",
-  "github/awesome-copilot/skills/gh-cli",
+  "github/awesome-copilot/skills/github-issues",
 ]

@@ -1,6 +1,8 @@
 use skills_sync::github::{TreeEntry, TreeResponse};
 use skills_sync::metadata::SkillMeta;
-use skills_sync::resolver::{detect_skills, resolve, skill_key, RemoteSkill, RepoSkills, SyncAction};
+use skills_sync::resolver::{
+    detect_skills, resolve, skill_key, RemoteSkill, RepoSkills, SyncAction,
+};
 use std::collections::HashMap;
 
 /// Helper: create a TreeResponse from (path, type) pairs.
@@ -38,7 +40,11 @@ fn detect_root_skill_wins_over_subdirectory() {
         ("beta/SKILL.md", "blob"),
     ]);
     let skills = detect_skills(&tree);
-    assert_eq!(skills.len(), 1, "root SKILL.md should win — ignore subdirectories");
+    assert_eq!(
+        skills.len(),
+        1,
+        "root SKILL.md should win — ignore subdirectories"
+    );
     assert_eq!(skills[0].subdirectory, None);
 }
 
@@ -71,7 +77,10 @@ fn detect_ignores_deep_nesting() {
         ("README.md", "blob"),
     ]);
     let skills = detect_skills(&tree);
-    assert!(skills.is_empty(), "deeply nested SKILL.md should be ignored");
+    assert!(
+        skills.is_empty(),
+        "deeply nested SKILL.md should be ignored"
+    );
 }
 
 #[test]
@@ -87,7 +96,10 @@ fn detect_ignores_commit_type() {
     // Submodule entry
     let tree = make_tree(&[("SKILL.md", "commit")]);
     let skills = detect_skills(&tree);
-    assert!(skills.is_empty(), "commit-type (submodule) should be ignored");
+    assert!(
+        skills.is_empty(),
+        "commit-type (submodule) should be ignored"
+    );
 }
 
 #[test]
@@ -116,6 +128,7 @@ fn skill_key_monorepo() {
 
 fn make_meta(source: &str, sha: &str, subdirectory: Option<&str>) -> SkillMeta {
     let mut meta = SkillMeta::new(source, sha);
+    meta.directory = Some("test-skill".into());
     if let Some(subdir) = subdirectory {
         meta = meta.with_subdirectory(subdir);
     }
@@ -270,10 +283,18 @@ fn resolve_multiple_actions() {
     let actions = resolve(&repo_skills, &local);
     assert_eq!(actions.len(), 4);
 
-    let has_skip = actions.iter().any(|a| matches!(a, SyncAction::Skip { subdirectory: Some(s), .. } if s == "alpha"));
-    let has_update = actions.iter().any(|a| matches!(a, SyncAction::Update { subdirectory: Some(s), .. } if s == "beta"));
-    let has_install = actions.iter().any(|a| matches!(a, SyncAction::Install { subdirectory: Some(s), .. } if s == "gamma"));
-    let has_remove = actions.iter().any(|a| matches!(a, SyncAction::Remove { subdirectory: Some(s), .. } if s == "delta"));
+    let has_skip = actions
+        .iter()
+        .any(|a| matches!(a, SyncAction::Skip { subdirectory: Some(s), .. } if s == "alpha"));
+    let has_update = actions
+        .iter()
+        .any(|a| matches!(a, SyncAction::Update { subdirectory: Some(s), .. } if s == "beta"));
+    let has_install = actions
+        .iter()
+        .any(|a| matches!(a, SyncAction::Install { subdirectory: Some(s), .. } if s == "gamma"));
+    let has_remove = actions
+        .iter()
+        .any(|a| matches!(a, SyncAction::Remove { subdirectory: Some(s), .. } if s == "delta"));
 
     assert!(has_skip, "alpha should be Skip");
     assert!(has_update, "beta should be Update");
@@ -301,7 +322,9 @@ fn resolve_idempotent() {
     let actions2 = resolve(&repo_skills, &local);
     assert_eq!(actions1, actions2, "resolve should be idempotent");
     assert!(
-        actions1.iter().all(|a| matches!(a, SyncAction::Skip { .. })),
+        actions1
+            .iter()
+            .all(|a| matches!(a, SyncAction::Skip { .. })),
         "all actions should be Skip when nothing changed"
     );
 }
@@ -334,11 +357,17 @@ fn resolve_monorepo_skills_tracked_independently() {
     assert_eq!(actions.len(), 2);
 
     let alpha_action = actions.iter().find(|a| match a {
-        SyncAction::Skip { subdirectory: Some(s), .. } => s == "alpha",
+        SyncAction::Skip {
+            subdirectory: Some(s),
+            ..
+        } => s == "alpha",
         _ => false,
     });
     let beta_action = actions.iter().find(|a| match a {
-        SyncAction::Install { subdirectory: Some(s), .. } => s == "beta",
+        SyncAction::Install {
+            subdirectory: Some(s),
+            ..
+        } => s == "beta",
         _ => false,
     });
 
@@ -367,9 +396,43 @@ fn resolve_remove_only_from_same_repo() {
     );
 
     let actions = resolve(&repo_skills, &local);
-    assert_eq!(actions.len(), 1, "only skills from repo-a should be affected");
+    assert_eq!(
+        actions.len(),
+        1,
+        "only skills from repo-a should be affected"
+    );
     assert!(
         matches!(&actions[0], SyncAction::Remove { repo, .. } if repo == "owner/repo-a"),
         "removed skill should be from repo-a"
     );
+}
+
+#[test]
+fn legacy_lock_triggers_migration_even_if_sha_is_unchanged() {
+    let repo = RepoSkills {
+        repo: "owner/repo".into(),
+        skills: vec![RemoteSkill {
+            subdirectory: None,
+            tree_sha: "sha".into(),
+        }],
+        commit_sha: "sha".into(),
+    };
+    let legacy = HashMap::from([("owner/repo".into(), SkillMeta::new("owner/repo", "sha"))]);
+    assert!(
+        matches!(&resolve(&repo, &legacy)[0], SyncAction::Update { old_sha, new_sha, .. } if old_sha == new_sha)
+    );
+}
+
+#[test]
+fn pinned_skills_require_an_existing_skill_file() {
+    use skills_sync::resolver::detect_pinned_skill;
+    let tree = make_tree(&[
+        ("skills/valid/SKILL.md", "blob"),
+        ("skills/not-a-file/SKILL.md", "tree"),
+    ]);
+    assert!(detect_pinned_skill(&tree, "skills/removed").is_none());
+    assert!(detect_pinned_skill(&tree, "skills/not-a-file").is_none());
+    let skill = detect_pinned_skill(&tree, "skills/valid").unwrap();
+    assert_eq!(skill.subdirectory.as_deref(), Some("skills/valid"));
+    assert_eq!(skill.tree_sha, tree.sha);
 }

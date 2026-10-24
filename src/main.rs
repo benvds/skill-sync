@@ -1,15 +1,15 @@
 use clap::Parser;
 use owo_colors::{OwoColorize, Stream};
 use skills_sync::cli::Cli;
-use skills_sync::config::discover_manifest;
+use skills_sync::config::{discover_manifest, global_target_dir, target_dir_for_manifest};
 use skills_sync::error::SkillsSyncError;
 use skills_sync::github::{self, AuthMethod};
 use skills_sync::init::run_init;
+use skills_sync::manifest;
 use skills_sync::manifest::parse_repo_entry;
 use skills_sync::metadata::{self, lock_path_for_manifest, read_lock_file, LockFile};
 use skills_sync::resolver;
 use skills_sync::sync;
-use skills_sync::manifest;
 use std::collections::{HashMap, HashSet};
 
 fn main() {
@@ -34,13 +34,32 @@ fn main() {
 
 fn run(cli: Cli) -> skills_sync::error::Result<()> {
     if cli.init {
-        let path = std::path::PathBuf::from(".skills.toml");
+        let path = match cli.config.as_ref() {
+            Some(path) => path.clone(),
+            None if cli.global => global_target_dir()?.join(".skills.toml"),
+            None => std::path::PathBuf::from(".skills.toml"),
+        };
         return run_init(&path);
     }
 
-    let manifest_path = discover_manifest(cli.config.as_deref())?;
-    let content =
-        std::fs::read_to_string(&manifest_path).map_err(SkillsSyncError::Io)?;
+    // --global uses its own manifest/lock so global and local installs cannot share state.
+    let global_manifest = if cli.global && cli.config.is_none() {
+        let base = global_target_dir()?;
+        let hidden = base.join(".skills.toml");
+        let path = if hidden.is_file() {
+            hidden
+        } else {
+            base.join("skills.toml")
+        };
+        Some(discover_manifest(Some(&path))?)
+    } else {
+        None
+    };
+    let manifest_path = match global_manifest {
+        Some(path) => path,
+        None => discover_manifest(cli.config.as_deref())?,
+    };
+    let content = std::fs::read_to_string(&manifest_path).map_err(SkillsSyncError::Io)?;
     let manifest = manifest::parse_and_validate(&content, &manifest_path)?;
 
     // Derive lock file path from manifest path (.skills.toml → .skills.lock)
@@ -53,9 +72,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
             "{} running unauthenticated (60 requests/hour limit)",
             "warning:".if_supports_color(Stream::Stderr, |t| t.yellow())
         );
-        eprintln!(
-            "  hint: set GITHUB_TOKEN or install gh CLI for 5,000 requests/hour"
-        );
+        eprintln!("  hint: set GITHUB_TOKEN or install gh CLI for 5,000 requests/hour");
     }
     if cli.verbose {
         eprintln!("auth: {:?}", auth_method);
@@ -67,17 +84,19 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     let client = github::GitHubClient::new(token, auth_method)
         .map_err(|e| SkillsSyncError::HttpClient(e.to_string()))?;
 
-    // Resolve target directory: global (~/.claude/skills/) or local (.claude/skills/)
-    let target_dir_buf: std::path::PathBuf = if cli.global {
-        let home = dirs::home_dir().ok_or_else(|| SkillsSyncError::SyncFailed {
-            repo: "--global".to_string(),
-            reason: "cannot resolve home directory for --global target".to_string(),
-        })?;
-        home.join(".claude").join("skills")
+    let target_dir_buf = if let Some(target) = &cli.target {
+        target.clone()
+    } else if cli.global {
+        global_target_dir()?
     } else {
-        std::path::PathBuf::from(".claude/skills")
+        target_dir_for_manifest(&manifest_path)
     };
     let target_dir = target_dir_buf.as_path();
+    if cli.verbose {
+        eprintln!("manifest: {}", manifest_path.display());
+        eprintln!("lock: {}", lock_path.display());
+        eprintln!("target: {}", target_dir.display());
+    }
 
     // Read consolidated lock file once (returns empty if not found yet)
     let lock_file = read_lock_file(&lock_path).map_err(SkillsSyncError::Io)?;
@@ -149,11 +168,12 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
 
         // Detect or use specified skills
         let remote_skills = if let Some(subdir) = manifest_subdir {
-            // Manifest specifies exact subdirectory — skip Trees API detection
-            vec![resolver::RemoteSkill {
-                subdirectory: Some(subdir.to_string()),
-                tree_sha: tree.sha.clone(),
-            }]
+            vec![resolver::detect_pinned_skill(&tree, subdir).ok_or_else(|| {
+                SkillsSyncError::SyncFailed {
+                    repo: repo_entry.clone(),
+                    reason: format!("no SKILL.md found at {subdir}/SKILL.md"),
+                }
+            })?]
         } else {
             // No subdirectory specified — detect skills via Trees API
             let detected = resolver::detect_skills(&tree);
@@ -169,8 +189,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         };
 
         if cli.verbose {
-            let skill_type = if remote_skills.len() == 1
-                && remote_skills[0].subdirectory.is_none()
+            let skill_type = if remote_skills.len() == 1 && remote_skills[0].subdirectory.is_none()
             {
                 "single-skill".to_string()
             } else {
@@ -180,7 +199,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         }
 
         // Load local metadata from consolidated lock file (filter by repo_slug)
-        let local_metadata = load_local_metadata(&repo_slug, &lock_file);
+        let local_metadata = load_local_metadata(&repo_slug, &lock_file, target_dir);
 
         // Build repo skills for resolver
         let repo_skills = resolver::RepoSkills {
@@ -210,8 +229,11 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     // Add global orphan Remove actions to all_actions (skip any already covered by resolver)
     for orphan in &global_orphans {
         let already_covered = all_actions.iter().any(|a| {
-            if let resolver::SyncAction::Remove { repo, subdirectory, .. } = a {
-                sync::skill_dir_name(repo, subdirectory) == orphan.dir_name
+            if let resolver::SyncAction::Remove {
+                repo, subdirectory, ..
+            } = a
+            {
+                resolver::skill_key(repo, subdirectory) == orphan.skill_key
             } else {
                 false
             }
@@ -219,7 +241,9 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         if !already_covered {
             all_actions.push(resolver::SyncAction::Remove {
                 repo: orphan.source.clone(),
-                subdirectory: None,
+                subdirectory: lock_file_for_orphans.skills[&orphan.skill_key]
+                    .subdirectory
+                    .clone(),
                 local_sha: String::new(),
             });
         }
@@ -229,7 +253,9 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     if cli.dry_run {
         for action in &all_actions {
             match action {
-                resolver::SyncAction::Install { repo, subdirectory, .. } => {
+                resolver::SyncAction::Install {
+                    repo, subdirectory, ..
+                } => {
                     let name = resolver::skill_key(repo, subdirectory);
                     println!(
                         "{} {} (install)",
@@ -237,7 +263,12 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
                         name
                     );
                 }
-                resolver::SyncAction::Update { repo, subdirectory, old_sha, new_sha } => {
+                resolver::SyncAction::Update {
+                    repo,
+                    subdirectory,
+                    old_sha,
+                    new_sha,
+                } => {
                     let name = resolver::skill_key(repo, subdirectory);
                     if cli.verbose {
                         println!(
@@ -255,7 +286,9 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
                         );
                     }
                 }
-                resolver::SyncAction::Remove { repo, subdirectory, .. } => {
+                resolver::SyncAction::Remove {
+                    repo, subdirectory, ..
+                } => {
                     let name = resolver::skill_key(repo, subdirectory);
                     println!(
                         "{} {} (remove)",
@@ -340,11 +373,45 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
 ///
 /// Reads entries from the consolidated lock file that match the given repo source.
 /// Returns a HashMap keyed by skill_key for use with the resolver.
-fn load_local_metadata(repo: &str, lock_file: &LockFile) -> HashMap<String, metadata::SkillMeta> {
+fn load_local_metadata(
+    repo: &str,
+    lock_file: &LockFile,
+    target: &std::path::Path,
+) -> HashMap<String, metadata::SkillMeta> {
     lock_file
         .skills
         .iter()
-        .filter(|(_, meta)| meta.source == repo)
+        .filter(|(_, meta)| {
+            meta.source == repo
+                && target
+                    .join(meta.directory_name())
+                    .join("SKILL.md")
+                    .is_file()
+        })
         .map(|(key, meta)| (key.clone(), meta.clone()))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_skills_in_a_new_target_are_not_treated_as_installed() {
+        let tmp = tempfile::tempdir().unwrap();
+        let old_target = tmp.path().join("old/skills");
+        std::fs::create_dir_all(old_target.join("test-skill")).unwrap();
+        std::fs::write(old_target.join("test-skill/SKILL.md"), "instructions").unwrap();
+        let mut meta = metadata::SkillMeta::new("owner/repo", "sha");
+        meta.directory = Some("test-skill".into());
+        let mut lock = LockFile::new();
+        lock.skills.insert("owner/repo".into(), meta);
+        assert_eq!(
+            load_local_metadata("owner/repo", &lock, &old_target).len(),
+            1
+        );
+        assert!(
+            load_local_metadata("owner/repo", &lock, &tmp.path().join("new/skills")).is_empty()
+        );
+    }
 }

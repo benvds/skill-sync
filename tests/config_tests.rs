@@ -1,4 +1,5 @@
 use skills_sync::config::discover_manifest_in;
+use skills_sync::config::{is_project_dir, target_dir_for_manifest};
 use tempfile::TempDir;
 
 #[test]
@@ -72,5 +73,90 @@ fn test_error_includes_init_hint() {
         err.contains("--init"),
         "Error should suggest --init: {}",
         err
+    );
+}
+
+#[test]
+fn plain_manifest_is_discovered_and_hidden_manifest_takes_priority() {
+    let dir = TempDir::new().unwrap();
+    let plain = dir.path().join("skills.toml");
+    std::fs::write(&plain, "[skills]\nrepos = []\n").unwrap();
+    assert_eq!(discover_manifest_in(dir.path(), None).unwrap(), plain);
+    let hidden = dir.path().join(".skills.toml");
+    std::fs::write(&hidden, "[skills]\nrepos = []\n").unwrap();
+    assert_eq!(discover_manifest_in(dir.path(), None).unwrap(), hidden);
+}
+
+#[test]
+fn target_layouts_are_relative_to_manifest() {
+    let tmp = TempDir::new().unwrap();
+    let root = tmp.path().canonicalize().unwrap();
+    for (folder, marker, expected) in [
+        ("project", Some("Cargo.toml"), "project/.agents/skills"),
+        ("worktree", Some(".git"), "worktree/.agents/skills"),
+        (
+            "new-project",
+            Some("AGENTS.md"),
+            "new-project/.agents/skills",
+        ),
+        ("standalone", None, "standalone"),
+        ("skills", Some(".git"), "skills"),
+        (".agents", None, ".agents/skills"),
+        (".codex", None, ".codex/skills"),
+        (".claude", None, ".claude/skills"),
+        (
+            "home/.agents/skills",
+            Some("package.json"),
+            "home/.agents/skills",
+        ),
+        ("home/.codex/skills", None, "home/.codex/skills"),
+        ("project/.agents/skills", None, "project/.agents/skills"),
+    ] {
+        let base = root.join(folder);
+        std::fs::create_dir_all(&base).unwrap();
+        if let Some(marker) = marker {
+            std::fs::write(base.join(marker), "").unwrap();
+        }
+        assert_eq!(
+            target_dir_for_manifest(&base.join("skills.toml")),
+            root.join(expected),
+            "{folder}"
+        );
+    }
+}
+
+#[test]
+fn project_detection_handles_git_worktree_files_and_agent_folders() {
+    let dir = TempDir::new().unwrap();
+    assert!(!is_project_dir(dir.path()));
+    std::fs::write(dir.path().join(".git"), "gitdir: elsewhere").unwrap();
+    assert!(is_project_dir(dir.path()));
+    std::fs::remove_file(dir.path().join(".git")).unwrap();
+    std::fs::create_dir(dir.path().join(".agents")).unwrap();
+    assert!(is_project_dir(dir.path()));
+}
+
+#[cfg(unix)]
+#[test]
+fn symlinked_skills_directory_is_not_nested() {
+    let dir = TempDir::new().unwrap();
+    let collection = dir.path().join("skills");
+    std::fs::create_dir(&collection).unwrap();
+    let link = dir.path().join("shared");
+    std::os::unix::fs::symlink(&collection, &link).unwrap();
+    assert_eq!(
+        target_dir_for_manifest(&link.join(".skills.toml")),
+        collection.canonicalize().unwrap()
+    );
+
+    let versioned = dir.path().join("shared-collection");
+    std::fs::create_dir(&versioned).unwrap();
+    std::fs::write(versioned.join(".git"), "gitdir: elsewhere").unwrap();
+    let link = dir.path().join(".agents/skills");
+    std::fs::create_dir(link.parent().unwrap()).unwrap();
+    std::os::unix::fs::symlink(&versioned, &link).unwrap();
+    assert_eq!(
+        target_dir_for_manifest(&link.join("skills.toml")),
+        versioned.canonicalize().unwrap()
     );
 }

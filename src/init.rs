@@ -16,7 +16,11 @@ const INIT_TEMPLATE: &str = r#"# ===============================================
 #   skills-sync              Sync all repos listed below
 #   skills-sync --dry-run    Preview changes without applying
 #   skills-sync --verbose    Show detailed sync output
-#   skills-sync --global     Sync to ~/.claude/skills/ instead of local
+#   skills-sync --global     Sync to ~/.agents/skills/
+#   skills-sync --target ~/.codex/skills  Use an explicit skills directory
+#
+# Skills are installed next to this file in an existing skills directory.
+# From a project root, the target is .agents/skills/.
 #
 # -- Format -------------------------------------------------------------------
 #
@@ -68,6 +72,9 @@ pub fn run_init(path: &Path) -> crate::error::Result<()> {
         .into());
     }
 
+    if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent).map_err(SkillsSyncError::Io)?;
+    }
     std::fs::write(path, INIT_TEMPLATE).map_err(SkillsSyncError::Io)?;
 
     eprintln!("Created {}", path.display());
