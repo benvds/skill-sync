@@ -2,7 +2,11 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "skill-sync", about = "Sync Claude skills from manifest", version)]
+#[command(
+    name = "skill-sync",
+    about = "Sync Agent Skills from a manifest",
+    version
+)]
 pub struct Cli {
     /// Generate a sample .skills.toml
     #[arg(long)]
@@ -12,13 +16,21 @@ pub struct Cli {
     #[arg(long)]
     pub config: Option<PathBuf>,
 
-    /// Show verbose output including SHA comparisons and git command output
+    /// Show resolved manifests, locks, scopes and target directories
     #[arg(long)]
     pub verbose: bool,
 
-    /// Sync to global target (~/.claude/skills/) instead of local (.claude/skills/)
+    /// Sync only the central user configuration
     #[arg(long)]
     pub global: bool,
+
+    /// Explicit skills directory (e.g. ~/.codex/skills/); conflicts with --global
+    #[arg(long, value_name = "PATH", conflicts_with = "global")]
+    pub target: Option<PathBuf>,
+
+    /// Select agents (repeat or comma-separate); overrides [sync].agents
+    #[arg(long = "agent", alias = "agents", value_delimiter = ',')]
+    pub agents: Vec<String>,
 
     /// Show planned changes without executing (exit 2 if changes pending, 0 if up-to-date)
     #[arg(long)]
@@ -28,7 +40,7 @@ pub struct Cli {
     #[arg(long)]
     pub force: bool,
 
-    /// Sync to local target (.claude/skills/), mutually exclusive with --global
+    /// Sync only the nearest project manifest
     #[arg(long, conflicts_with = "global")]
     pub local: bool,
 }

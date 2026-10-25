@@ -1,17 +1,50 @@
 use crate::error::SkillSyncError;
 use regex::Regex;
 use serde::Deserialize;
-use std::collections::HashSet;
+use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 use std::sync::LazyLock;
 
-static REPO_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+(/[a-zA-Z0-9._-]+)*$").unwrap()
-});
+static REPO_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+(/[a-zA-Z0-9._-]+)*$").unwrap());
 
 #[derive(Debug, Deserialize)]
 pub struct Manifest {
     pub skills: Skills,
+    pub sync: Option<SyncConfig>,
+    #[serde(default)]
+    pub agents: BTreeMap<String, AgentPaths>,
+}
+
+#[derive(Debug, Deserialize, serde::Serialize, Clone, Copy, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Scope {
+    User,
+    Project,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct SyncConfig {
+    pub scope: Option<Scope>,
+    #[serde(default)]
+    pub agents: Vec<String>,
+    #[serde(default)]
+    pub mode: CopyMode,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum CopyMode {
+    #[default]
+    Copy,
+}
+
+#[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct AgentPaths {
+    pub user_dir: Option<String>,
+    pub project_dir: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,9 +78,9 @@ pub fn parse_repo_entry(entry: &str) -> (&str, &str, Option<&str>) {
 pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Manifest> {
     // Step 1: Parse as generic table to detect unknown keys
     let table: toml::Table = toml::from_str(content).map_err(|e| {
-        let span = e.span().map(|s| {
-            miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1).into())
-        });
+        let span = e
+            .span()
+            .map(|s| miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1).into()));
         SkillSyncError::InvalidToml {
             src: miette::NamedSource::new(path.display().to_string(), content.to_string()),
             span: span.unwrap_or_else(|| miette::SourceSpan::new(0.into(), 1_usize.into())),
@@ -55,7 +88,7 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
     })?;
 
     // Warn about unknown top-level keys
-    let known_keys = ["skills"];
+    let known_keys = ["skills", "sync", "agents"];
     for key in table.keys() {
         if !known_keys.contains(&key.as_str()) {
             eprintln!(
@@ -67,14 +100,24 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
 
     // Step 2: Deserialize into typed struct
     let mut manifest: Manifest = toml::from_str(content).map_err(|e| {
-        let span = e.span().map(|s| {
-            miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1).into())
-        });
+        let span = e
+            .span()
+            .map(|s| miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1).into()));
         SkillSyncError::InvalidToml {
             src: miette::NamedSource::new(path.display().to_string(), content.to_string()),
             span: span.unwrap_or_else(|| miette::SourceSpan::new(0.into(), 1_usize.into())),
         }
     })?;
+
+    // Validate agent names even for empty manifests (which may remove installations).
+    if let Some(sync) = &manifest.sync {
+        for agent in &sync.agents {
+            crate::agents::validate_agent(agent)?;
+        }
+    }
+    for agent in manifest.agents.keys() {
+        crate::agents::validate_agent(agent)?;
+    }
 
     // Step 3: Warn on empty repos
     if manifest.skills.repos.is_empty() {
@@ -92,11 +135,8 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
 
     // Step 5: Validate repo format
     for repo in &manifest.skills.repos {
-        if !REPO_PATTERN.is_match(repo) {
-            return Err(SkillSyncError::InvalidRepo {
-                repo: repo.clone(),
-            }
-            .into());
+        if !REPO_PATTERN.is_match(repo) || repo.split('/').any(|part| part == "." || part == "..") {
+            return Err(SkillSyncError::InvalidRepo { repo: repo.clone() }.into());
         }
     }
 
@@ -104,10 +144,7 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
     let mut seen = HashSet::new();
     for repo in &manifest.skills.repos {
         if !seen.insert(repo.clone()) {
-            return Err(SkillSyncError::DuplicateRepo {
-                repo: repo.clone(),
-            }
-            .into());
+            return Err(SkillSyncError::DuplicateRepo { repo: repo.clone() }.into());
         }
     }
 

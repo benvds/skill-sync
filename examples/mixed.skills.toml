@@ -22,8 +22,8 @@ repos = [
     # Subdirectory pin — install the skill-creator skill from anthropics/skills
     "anthropics/skills/skills/skill-creator",
 
-    # Subdirectory pin — install the gh-cli skill from github/awesome-copilot
-    "github/awesome-copilot/skills/gh-cli",
+    # Subdirectory pin — install the github-issues skill from github/awesome-copilot
+    "github/awesome-copilot/skills/github-issues",
 
     # Auto-detect monorepo — installs all skill subdirectories found in this repo
     # "example-org/skill-collection",

@@ -41,6 +41,9 @@ impl Default for LockFile {
 #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
 pub struct SkillMeta {
     pub source: String,
+    /// Actual installed directory; absent in legacy locks using owner--repo names.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub directory: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub subdirectory: Option<String>,
     pub sha: String,
@@ -54,6 +57,7 @@ impl SkillMeta {
         let now = Utc::now();
         Self {
             source: source.into(),
+            directory: None,
             subdirectory: None,
             sha: sha.into(),
             installed_at: now,
@@ -65,6 +69,12 @@ impl SkillMeta {
     pub fn with_subdirectory(mut self, subdir: impl Into<String>) -> Self {
         self.subdirectory = Some(subdir.into());
         self
+    }
+
+    pub fn directory_name(&self) -> String {
+        self.directory
+            .clone()
+            .unwrap_or_else(|| crate::sync::skill_dir_name(&self.source, &self.subdirectory))
     }
 }
 
@@ -82,8 +92,7 @@ pub fn write_lock_file_atomic(path: &Path, lock_file: &LockFile) -> std::io::Res
     // Ensure parent directory exists
     std::fs::create_dir_all(dir)?;
     let mut tmp = NamedTempFile::new_in(dir)?;
-    let toml_str = toml::to_string_pretty(lock_file)
-        .map_err(std::io::Error::other)?;
+    let toml_str = toml::to_string_pretty(lock_file).map_err(std::io::Error::other)?;
     tmp.write_all(toml_str.as_bytes())?;
     tmp.flush()?;
     tmp.persist(path).map_err(|e| e.error)?;

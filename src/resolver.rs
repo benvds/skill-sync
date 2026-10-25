@@ -103,6 +103,18 @@ pub fn detect_skills(tree: &TreeResponse) -> Vec<RemoteSkill> {
         .collect()
 }
 
+/// A pinned subdirectory must actually contain a SKILL.md file in the remote tree.
+pub fn detect_pinned_skill(tree: &TreeResponse, subdirectory: &str) -> Option<RemoteSkill> {
+    let skill_file = format!("{subdirectory}/SKILL.md");
+    tree.tree
+        .iter()
+        .any(|entry| entry.entry_type == "blob" && entry.path == skill_file)
+        .then(|| RemoteSkill {
+            subdirectory: Some(subdirectory.into()),
+            tree_sha: tree.sha.clone(),
+        })
+}
+
 /// Resolve sync actions by comparing remote skills against local metadata.
 ///
 /// Pure function — no I/O. Takes remote state and local state, returns actions.
@@ -112,7 +124,10 @@ pub fn detect_skills(tree: &TreeResponse) -> Vec<RemoteSkill> {
 /// - Update: remote skill's commit SHA differs from local metadata SHA
 /// - Skip: remote skill's commit SHA matches local metadata SHA
 /// - Remove: local skill (same repo) not in remote skills (orphan)
-pub fn resolve(repo_skills: &RepoSkills, local_metadata: &HashMap<String, SkillMeta>) -> Vec<SyncAction> {
+pub fn resolve(
+    repo_skills: &RepoSkills,
+    local_metadata: &HashMap<String, SkillMeta>,
+) -> Vec<SyncAction> {
     let mut actions = Vec::new();
     let repo = &repo_skills.repo;
     let mut matched_keys = Vec::new();
@@ -130,7 +145,8 @@ pub fn resolve(repo_skills: &RepoSkills, local_metadata: &HashMap<String, SkillM
                     remote_sha: repo_skills.commit_sha.clone(),
                 });
             }
-            Some(meta) if meta.sha != repo_skills.commit_sha => {
+            // Reinstall legacy owner--repo directories under their portable skill name.
+            Some(meta) if meta.sha != repo_skills.commit_sha || meta.directory.is_none() => {
                 actions.push(SyncAction::Update {
                     repo: repo.clone(),
                     subdirectory: skill.subdirectory.clone(),

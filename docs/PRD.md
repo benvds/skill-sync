@@ -1,3 +1,5 @@
+> Historical design document. Target selection and skill directory naming have since changed; see the [README](../README.md#where-skills-are-installed) for current behavior.
+
 # Product Requirements Document: `skill-sync`
 
 **Version:** 0.1.0

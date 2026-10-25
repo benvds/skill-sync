@@ -4,6 +4,8 @@ use thiserror::Error;
 
 #[derive(Error, Diagnostic, Debug)]
 pub enum SkillSyncError {
+    #[error("invalid configuration: {0}")]
+    Config(String),
     #[error("manifest not found")]
     #[diagnostic(
         code(skill_sync::manifest::not_found),

@@ -19,11 +19,11 @@ fn test_init_content_has_skills_section() {
     run_init(&path).unwrap();
     let content = std::fs::read_to_string(&path).unwrap();
 
-    assert!(content.contains("[skills]"), "Should contain [skills] section");
     assert!(
-        content.contains("repos = ["),
-        "Should contain repos array"
+        content.contains("[skills]"),
+        "Should contain [skills] section"
     );
+    assert!(content.contains("repos = ["), "Should contain repos array");
 }
 
 #[test]
@@ -112,7 +112,10 @@ fn test_init_content_is_valid_toml() {
 
     // Should parse as valid TOML
     let parsed: toml::Table = toml::from_str(&content).unwrap();
-    assert!(parsed.contains_key("skills"), "Parsed TOML should have skills key");
+    assert!(
+        parsed.contains_key("skills"),
+        "Parsed TOML should have skills key"
+    );
 }
 
 #[test]
@@ -130,4 +133,13 @@ fn test_init_generated_manifest_passes_validation() {
         "Generated manifest should pass validation: {:?}",
         result.err()
     );
+}
+
+#[test]
+fn init_creates_parent_directories_for_explicit_and_global_paths() {
+    let dir = TempDir::new().unwrap();
+    let path = dir.path().join(".agents/skills/.skills.toml");
+    run_init(&path).unwrap();
+    assert!(path.is_file());
+    assert!(!path.parent().unwrap().join(".claude").exists());
 }

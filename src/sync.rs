@@ -50,9 +50,7 @@ pub fn build_clone_url(repo: &str, token: Option<&str>) -> String {
 /// `GitFailed` for non-zero exit codes.
 pub fn run_git(args: &[&str], cwd: Option<&Path>) -> crate::error::Result<()> {
     let mut cmd = Command::new("git");
-    cmd.args(args)
-        .stdout(Stdio::null())
-        .stderr(Stdio::piped());
+    cmd.args(args).stdout(Stdio::null()).stderr(Stdio::piped());
 
     if let Some(dir) = cwd {
         cmd.current_dir(dir);
@@ -83,6 +81,76 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> crate::error::Result<()> {
 
 // ── Core sync operations ──────────────────────────────────────────────────────
 
+/// Read the portable skill name without changing the upstream SKILL.md.
+pub fn read_skill_name(skill_dir: &Path) -> crate::error::Result<String> {
+    #[derive(serde::Deserialize)]
+    struct Frontmatter {
+        name: String,
+        description: String,
+    }
+    let invalid = |reason: String| SkillSyncError::SyncFailed {
+        repo: skill_dir.display().to_string(),
+        reason,
+    };
+    let content =
+        std::fs::read_to_string(skill_dir.join("SKILL.md")).map_err(SkillSyncError::Io)?;
+    let mut lines = content.lines();
+    if lines.next() != Some("---") {
+        return Err(invalid("SKILL.md must start with YAML frontmatter".into()).into());
+    }
+    let mut yaml = String::new();
+    let mut closed = false;
+    for line in lines {
+        if line == "---" {
+            closed = true;
+            break;
+        }
+        yaml.push_str(line);
+        yaml.push('\n');
+    }
+    if !closed {
+        return Err(invalid("SKILL.md frontmatter has no closing ---".into()).into());
+    }
+    let meta: Frontmatter = serde_yaml::from_str(&yaml)
+        .map_err(|e| invalid(format!("invalid SKILL.md frontmatter: {e}")))?;
+    if meta.name.is_empty()
+        || meta.name.len() > 64
+        || !meta
+            .name
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        || meta.name.starts_with('-')
+        || meta.name.ends_with('-')
+        || meta.name.contains("--")
+    {
+        return Err(invalid(
+            "SKILL.md name must be 1-64 lowercase letters, digits or single hyphens".into(),
+        )
+        .into());
+    }
+    if meta.description.trim().is_empty() || meta.description.chars().count() > 1024 {
+        return Err(invalid("SKILL.md description must contain 1-1024 characters".into()).into());
+    }
+    Ok(meta.name)
+}
+
+fn install_staged_skill(staged: &Path, target: &Path) -> crate::error::Result<String> {
+    let name = read_skill_name(staged)?;
+    let destination = target.join(&name);
+    if destination.symlink_metadata().is_ok() {
+        return Err(SkillSyncError::SyncFailed {
+            repo: name,
+            reason: format!("destination already exists: {}", destination.display()),
+        }
+        .into());
+    }
+    std::fs::rename(staged, &destination).map_err(|source| SkillSyncError::RenameFailed {
+        path: destination,
+        source,
+    })?;
+    Ok(name)
+}
+
 /// Install a skill from GitHub into `target_dir`.
 ///
 /// Single-skill repo: shallow clone (`--depth=1`) → atomic rename to final path.
@@ -103,7 +171,6 @@ pub fn execute_install(
     lock_file: &mut LockFile,
 ) -> crate::error::Result<()> {
     let dir_name = skill_dir_name(repo, subdirectory);
-    let final_path = target_dir.join(&dir_name);
     let tmp_name = format!(".skill-sync-tmp-{}-{}", std::process::id(), &dir_name);
     let tmp_path = target_dir.join(&tmp_name);
 
@@ -127,15 +194,7 @@ pub fn execute_install(
                 ],
                 None,
             )
-            .and_then(|_| {
-                std::fs::rename(&tmp_path, &final_path).map_err(|e| {
-                    SkillSyncError::RenameFailed {
-                        path: final_path.clone(),
-                        source: e,
-                    }
-                    .into()
-                })
-            })
+            .and_then(|_| install_staged_skill(&tmp_path, target_dir))
         }
         Some(subdir) => {
             // Monorepo: 4-step sparse checkout
@@ -151,22 +210,10 @@ pub fn execute_install(
                 ],
                 None,
             )
-            .and_then(|_| {
-                run_git(&["sparse-checkout", "init", "--cone"], Some(&tmp_path))
-            })
-            .and_then(|_| {
-                run_git(&["sparse-checkout", "set", subdir], Some(&tmp_path))
-            })
+            .and_then(|_| run_git(&["sparse-checkout", "init", "--cone"], Some(&tmp_path)))
+            .and_then(|_| run_git(&["sparse-checkout", "set", subdir], Some(&tmp_path)))
             .and_then(|_| run_git(&["checkout"], Some(&tmp_path)))
-            .and_then(|_| {
-                std::fs::rename(tmp_path.join(subdir), &final_path).map_err(|e| {
-                    SkillSyncError::RenameFailed {
-                        path: final_path.clone(),
-                        source: e,
-                    }
-                    .into()
-                })
-            });
+            .and_then(|_| install_staged_skill(&tmp_path.join(subdir), target_dir));
 
             if result.is_ok() {
                 // Clean up the temp clone (has .git and root files)
@@ -177,17 +224,20 @@ pub fn execute_install(
         }
     };
 
-    if let Err(e) = git_result {
-        // Best-effort cleanup of temp dir on failure
-        let _ = std::fs::remove_dir_all(&tmp_path);
-        return Err(e);
-    }
+    let directory = match git_result {
+        Ok(name) => name,
+        Err(e) => {
+            let _ = std::fs::remove_dir_all(&tmp_path);
+            return Err(e);
+        }
+    };
 
     // Write metadata into the consolidated lock file ONLY after successful rename
-    let meta = match subdirectory {
+    let mut meta = match subdirectory {
         None => SkillMeta::new(repo, remote_sha),
         Some(subdir) => SkillMeta::new(repo, remote_sha).with_subdirectory(subdir.clone()),
     };
+    meta.directory = Some(directory);
     let key = skill_key(repo, subdirectory);
     lock_file.skills.insert(key, meta);
     write_lock_file_atomic(lock_path, lock_file).map_err(SkillSyncError::Io)?;
@@ -197,8 +247,7 @@ pub fn execute_install(
 
 /// Update an already-installed skill to a new SHA.
 ///
-/// Preserves `installed_at` from the existing lock_file entry.
-/// Removes the old directory, calls `execute_install`, then patches `installed_at` back.
+/// Preserves `installed_at` and restores the existing directory if installation fails.
 #[allow(clippy::too_many_arguments)]
 pub fn execute_update(
     repo: &str,
@@ -210,9 +259,13 @@ pub fn execute_update(
     lock_path: &Path,
     lock_file: &mut LockFile,
 ) -> crate::error::Result<()> {
-    let dir_name = skill_dir_name(repo, subdirectory);
-    let existing_path = target_dir.join(&dir_name);
     let key = skill_key(repo, subdirectory);
+    let dir_name = lock_file
+        .skills
+        .get(&key)
+        .map(|meta| meta.directory_name())
+        .unwrap_or_else(|| skill_dir_name(repo, subdirectory));
+    let existing_path = target_dir.join(&dir_name);
 
     // Preserve installed_at from existing lock_file entry
     let installed_at = lock_file
@@ -221,14 +274,32 @@ pub fn execute_update(
         .map(|m| m.installed_at)
         .unwrap_or_else(chrono::Utc::now);
 
-    // Remove old directory
-    std::fs::remove_dir_all(&existing_path).map_err(|e| SkillSyncError::RemoveFailed {
-        path: existing_path.clone(),
-        source: e,
-    })?;
-
-    // Re-install fresh (this will insert into lock_file and write it)
-    execute_install(repo, subdirectory, new_sha, branch, target_dir, token, lock_path, lock_file)?;
+    // Keep the old skill until the replacement succeeds, including during legacy migration.
+    let backup = tempfile::tempdir_in(target_dir).map_err(SkillSyncError::Io)?;
+    let backup_path = backup.path().join("skill");
+    std::fs::rename(&existing_path, &backup_path).map_err(SkillSyncError::Io)?;
+    let old_lock = lock_file.clone();
+    if let Err(err) = execute_install(
+        repo,
+        subdirectory,
+        new_sha,
+        branch,
+        target_dir,
+        token,
+        lock_path,
+        lock_file,
+    ) {
+        // A lock write may fail after the new directory has already been installed.
+        if lock_file != &old_lock {
+            if let Some(meta) = lock_file.skills.get(&key) {
+                std::fs::remove_dir_all(target_dir.join(meta.directory_name()))
+                    .map_err(SkillSyncError::Io)?;
+            }
+        }
+        std::fs::rename(&backup_path, &existing_path).map_err(SkillSyncError::Io)?;
+        *lock_file = old_lock;
+        return Err(err);
+    }
 
     // Patch installed_at back and re-write the lock file
     if let Some(meta) = lock_file.skills.get_mut(&key) {
@@ -257,7 +328,7 @@ pub fn execute_remove(
     // Remove entry from consolidated lock file
     lock_file.skills.remove(skill_key_str);
     // Write updated lock file
-    let _ = write_lock_file_atomic(lock_path, lock_file);
+    write_lock_file_atomic(lock_path, lock_file).map_err(SkillSyncError::Io)?;
     Ok(())
 }
 
@@ -309,7 +380,7 @@ pub fn scan_orphans(
         }
 
         // Build the directory path from skill key
-        let dir_name = skill_dir_name(&meta.source, &meta.subdirectory);
+        let dir_name = meta.directory_name();
         let dir_path = target_dir.join(&dir_name);
 
         // Only report as orphan if directory actually exists on disk
@@ -379,7 +450,7 @@ pub fn execute_sync_plan(
     cleanup_stale_temp_dirs(target_dir);
 
     // Ensure target dir exists
-    let _ = std::fs::create_dir_all(target_dir);
+    std::fs::create_dir_all(target_dir).map_err(SkillSyncError::Io)?;
 
     // Read consolidated lock file (returns empty if not found)
     let mut lock_file = read_lock_file(lock_path).map_err(SkillSyncError::Io)?;
@@ -400,7 +471,11 @@ pub fn execute_sync_plan(
                 let dir_name = skill_dir_name(repo, subdirectory);
                 let branch = branch_map.get(repo).map(|s| s.as_str()).unwrap_or("main");
                 if verbose {
-                    eprintln!("  {} -> {}", dir_name, &remote_sha[..8.min(remote_sha.len())]);
+                    eprintln!(
+                        "  {} -> {}",
+                        dir_name,
+                        &remote_sha[..8.min(remote_sha.len())]
+                    );
                 }
                 match execute_install(
                     repo,
@@ -416,7 +491,7 @@ pub fn execute_sync_plan(
                         println!(
                             "{} {}",
                             "installed:".if_supports_color(Stream::Stdout, |t| t.green()),
-                            dir_name
+                            lock_file.skills[&skill_key(repo, subdirectory)].directory_name()
                         );
                         install_count += 1;
                     }
@@ -461,7 +536,7 @@ pub fn execute_sync_plan(
                         println!(
                             "{} {}",
                             "updated:".if_supports_color(Stream::Stdout, |t| t.yellow()),
-                            dir_name
+                            lock_file.skills[&skill_key(repo, subdirectory)].directory_name()
                         );
                         update_count += 1;
                     }
@@ -480,7 +555,11 @@ pub fn execute_sync_plan(
                 // Collect for batch removal with global orphans
                 remove_actions.push(action);
             }
-            crate::resolver::SyncAction::Skip { repo, subdirectory, sha } => {
+            crate::resolver::SyncAction::Skip {
+                repo,
+                subdirectory,
+                sha,
+            } => {
                 if verbose {
                     let dir_name = skill_dir_name(repo, subdirectory);
                     eprintln!("  skip: {} ({})", dir_name, &sha[..8.min(sha.len())]);
@@ -497,14 +576,16 @@ pub fn execute_sync_plan(
 
     for action in &remove_actions {
         if let crate::resolver::SyncAction::Remove {
-            repo,
-            subdirectory,
-            ..
+            repo, subdirectory, ..
         } = action
         {
-            let dir_name = skill_dir_name(repo, subdirectory);
-            let dir_path = target_dir.join(&dir_name);
             let key = skill_key(repo, subdirectory);
+            let dir_name = lock_file
+                .skills
+                .get(&key)
+                .map(|meta| meta.directory_name())
+                .unwrap_or_else(|| skill_dir_name(repo, subdirectory));
+            let dir_path = target_dir.join(&dir_name);
             all_orphans.push(OrphanSkill {
                 dir_path,
                 dir_name,
@@ -515,10 +596,8 @@ pub fn execute_sync_plan(
     }
 
     // Add global orphans (skip any already covered by remove_actions)
-    let remove_action_dirs: HashSet<String> = all_orphans
-        .iter()
-        .map(|o| o.dir_name.clone())
-        .collect();
+    let remove_action_dirs: HashSet<String> =
+        all_orphans.iter().map(|o| o.dir_name.clone()).collect();
     for orphan in global_orphans {
         if !remove_action_dirs.contains(&orphan.dir_name) {
             all_orphans.push(orphan);
@@ -533,7 +612,12 @@ pub fn execute_sync_plan(
         let confirmed = prompt_orphan_removal(&all_orphans, force);
         if confirmed {
             for orphan in &all_orphans {
-                match execute_remove(&orphan.dir_path, lock_path, &mut lock_file, &orphan.skill_key) {
+                match execute_remove(
+                    &orphan.dir_path,
+                    lock_path,
+                    &mut lock_file,
+                    &orphan.skill_key,
+                ) {
                     Ok(()) => {
                         println!(
                             "{} {}",
@@ -569,7 +653,10 @@ pub fn execute_sync_plan(
         }
         .into());
     } else {
-        println!("{}", summary.if_supports_color(Stream::Stdout, |t| t.green()));
+        println!(
+            "{}",
+            summary.if_supports_color(Stream::Stdout, |t| t.green())
+        );
     }
 
     Ok(())
