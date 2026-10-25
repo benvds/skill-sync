@@ -1,0 +1,12 @@
+# Save as .skills.toml at your project root and commit it with your project.
+# Personal and project manifests have independent source lists and locks.
+[sync]
+scope = "project"
+agents = ["codex", "claude-code", "cursor"]
+mode = "copy"
+
+[skills]
+repos = [
+    "github/awesome-copilot/skills/github-issues",
+    # "your-org/project-skills",
+]

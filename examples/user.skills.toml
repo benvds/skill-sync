@@ -1,0 +1,15 @@
+# Save as ~/.config/skills-sync/skills.toml (or under $XDG_CONFIG_HOME).
+[sync]
+scope = "user"
+agents = ["codex", "claude-code", "cursor", "gemini-cli", "copilot", "opencode"]
+mode = "copy"
+
+# Optional compatibility destination:
+# [agents.codex]
+# user_dir = "~/.codex/skills"
+
+[skills]
+repos = [
+    "anthropics/skills/skills/skill-creator",
+    "github/awesome-copilot/skills/github-issues",
+]
