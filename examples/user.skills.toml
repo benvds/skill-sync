@@ -1,4 +1,4 @@
-# Save as ~/.config/skills-sync/skills.toml (or under $XDG_CONFIG_HOME).
+# Save as ~/.config/skill-sync/skills.toml (or under $XDG_CONFIG_HOME).
 [sync]
 scope = "user"
 agents = ["codex", "claude-code", "cursor", "gemini-cli", "copilot", "opencode"]

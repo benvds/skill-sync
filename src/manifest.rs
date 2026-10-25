@@ -1,4 +1,4 @@
-use crate::error::SkillsSyncError;
+use crate::error::SkillSyncError;
 use regex::Regex;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashSet};
@@ -81,7 +81,7 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
         let span = e
             .span()
             .map(|s| miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1).into()));
-        SkillsSyncError::InvalidToml {
+        SkillSyncError::InvalidToml {
             src: miette::NamedSource::new(path.display().to_string(), content.to_string()),
             span: span.unwrap_or_else(|| miette::SourceSpan::new(0.into(), 1_usize.into())),
         }
@@ -103,7 +103,7 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
         let span = e
             .span()
             .map(|s| miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1).into()));
-        SkillsSyncError::InvalidToml {
+        SkillSyncError::InvalidToml {
             src: miette::NamedSource::new(path.display().to_string(), content.to_string()),
             span: span.unwrap_or_else(|| miette::SourceSpan::new(0.into(), 1_usize.into())),
         }
@@ -136,7 +136,7 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
     // Step 5: Validate repo format
     for repo in &manifest.skills.repos {
         if !REPO_PATTERN.is_match(repo) || repo.split('/').any(|part| part == "." || part == "..") {
-            return Err(SkillsSyncError::InvalidRepo { repo: repo.clone() }.into());
+            return Err(SkillSyncError::InvalidRepo { repo: repo.clone() }.into());
         }
     }
 
@@ -144,7 +144,7 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
     let mut seen = HashSet::new();
     for repo in &manifest.skills.repos {
         if !seen.insert(repo.clone()) {
-            return Err(SkillsSyncError::DuplicateRepo { repo: repo.clone() }.into());
+            return Err(SkillSyncError::DuplicateRepo { repo: repo.clone() }.into());
         }
     }
 

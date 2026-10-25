@@ -1,5 +1,5 @@
-use skills_sync::config::discover_manifest_in;
-use skills_sync::config::{is_project_dir, target_dir_for_manifest};
+use skill_sync::config::discover_manifest_in;
+use skill_sync::config::{is_project_dir, target_dir_for_manifest};
 use tempfile::TempDir;
 
 #[test]

@@ -1,5 +1,5 @@
 use crate::{
-    error::{Result, SkillsSyncError},
+    error::{Result, SkillSyncError},
     manifest::{Manifest, Scope},
 };
 use std::collections::BTreeSet;
@@ -9,7 +9,7 @@ pub fn validate_agent(agent: &str) -> Result<()> {
     match agent {
         "codex" | "claude-code" | "cursor" | "gemini-cli" | "copilot" |
         "github-copilot" | "opencode" | "goose" | "kiro" | "universal" => Ok(()),
-        _ => Err(SkillsSyncError::Config(format!("unknown agent `{agent}`; choose codex, claude-code, cursor, gemini-cli, copilot, opencode, goose, kiro or universal")).into()),
+        _ => Err(SkillSyncError::Config(format!("unknown agent `{agent}`; choose codex, claude-code, cursor, gemini-cli, copilot, opencode, goose, kiro or universal")).into()),
     }
 }
 
@@ -38,9 +38,9 @@ pub fn absolute_path(path: &Path, base: &Path) -> Result<PathBuf> {
         }
         ancestor = ancestor
             .parent()
-            .ok_or_else(|| SkillsSyncError::Config("cannot resolve target path".into()))?;
+            .ok_or_else(|| SkillSyncError::Config("cannot resolve target path".into()))?;
     }
-    let mut resolved = ancestor.canonicalize().map_err(SkillsSyncError::Io)?;
+    let mut resolved = ancestor.canonicalize().map_err(SkillSyncError::Io)?;
     for name in missing.iter().rev() {
         resolved.push(name);
     }
@@ -49,7 +49,7 @@ pub fn absolute_path(path: &Path, base: &Path) -> Result<PathBuf> {
 
 pub fn expand_path(value: &str, home: &Path, base: &Path) -> Result<PathBuf> {
     if value.trim().is_empty() {
-        return Err(SkillsSyncError::Config("empty target directory".into()).into());
+        return Err(SkillSyncError::Config("empty target directory".into()).into());
     }
     let path = if value == "~" {
         home.to_owned()
@@ -69,7 +69,7 @@ pub fn target_directories(
     home: &Path,
     config_home: &Path,
 ) -> Result<Vec<PathBuf>> {
-    let cwd = std::env::current_dir().map_err(SkillsSyncError::Io)?;
+    let cwd = std::env::current_dir().map_err(SkillSyncError::Io)?;
     let base = absolute_path(
         manifest_path
             .parent()
@@ -124,7 +124,7 @@ pub fn target_directories(
             )?
         };
         if scope == Scope::Project && !target.starts_with(&base) {
-            return Err(SkillsSyncError::Config(format!(
+            return Err(SkillSyncError::Config(format!(
                 "project target {} must stay inside {}",
                 target.display(),
                 base.display()

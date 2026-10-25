@@ -1,7 +1,7 @@
 //! Resolve sources once, then reconcile independently tracked copies at every destination.
 use crate::{
     deployment::{DeploymentLock, Installation},
-    error::{Result, SkillsSyncError},
+    error::{Result, SkillSyncError},
     github::GitHubClient,
     manifest::{parse_repo_entry, Manifest},
     resolver, sync,
@@ -15,7 +15,7 @@ use std::{
 };
 
 fn failure(path: &Path, reason: impl Into<String>) -> miette::Report {
-    SkillsSyncError::SyncFailed {
+    SkillSyncError::SyncFailed {
         repo: path.display().to_string(),
         reason: reason.into(),
     }
@@ -26,17 +26,17 @@ fn failure(path: &Path, reason: impl Into<String>) -> miette::Report {
 pub fn content_hash(root: &Path) -> Result<String> {
     fn visit(root: &Path, dir: &Path, hash: &mut Sha256) -> Result<()> {
         let mut entries = std::fs::read_dir(dir)
-            .map_err(SkillsSyncError::Io)?
+            .map_err(SkillSyncError::Io)?
             .collect::<std::io::Result<Vec<_>>>()
-            .map_err(SkillsSyncError::Io)?;
+            .map_err(SkillSyncError::Io)?;
         entries.sort_by_key(|e| e.file_name());
         for entry in entries {
             if entry.file_name() == ".git" {
                 continue;
             }
             let path = entry.path();
-            let meta = entry.metadata().map_err(SkillsSyncError::Io)?;
-            if entry.file_type().map_err(SkillsSyncError::Io)?.is_symlink()
+            let meta = entry.metadata().map_err(SkillSyncError::Io)?;
+            if entry.file_type().map_err(SkillSyncError::Io)?.is_symlink()
                 || (!meta.is_file() && !meta.is_dir())
             {
                 return Err(failure(
@@ -58,10 +58,10 @@ pub fn content_hash(root: &Path) -> Result<String> {
                     use std::os::unix::fs::PermissionsExt;
                     hash.update((meta.permissions().mode() & 0o111).to_le_bytes());
                 }
-                let mut file = std::fs::File::open(&path).map_err(SkillsSyncError::Io)?;
+                let mut file = std::fs::File::open(&path).map_err(SkillSyncError::Io)?;
                 let mut buffer = [0u8; 8192];
                 loop {
-                    let count = file.read(&mut buffer).map_err(SkillsSyncError::Io)?;
+                    let count = file.read(&mut buffer).map_err(SkillSyncError::Io)?;
                     if count == 0 {
                         break;
                     }
@@ -72,7 +72,7 @@ pub fn content_hash(root: &Path) -> Result<String> {
         Ok(())
     }
     if !std::fs::symlink_metadata(root)
-        .map_err(SkillsSyncError::Io)?
+        .map_err(SkillSyncError::Io)?
         .file_type()
         .is_dir()
     {
@@ -87,18 +87,18 @@ pub fn content_hash(root: &Path) -> Result<String> {
 }
 
 fn copy_directory(from: &Path, to: &Path) -> Result<()> {
-    std::fs::create_dir(to).map_err(SkillsSyncError::Io)?;
-    for entry in std::fs::read_dir(from).map_err(SkillsSyncError::Io)? {
-        let entry = entry.map_err(SkillsSyncError::Io)?;
+    std::fs::create_dir(to).map_err(SkillSyncError::Io)?;
+    for entry in std::fs::read_dir(from).map_err(SkillSyncError::Io)? {
+        let entry = entry.map_err(SkillSyncError::Io)?;
         if entry.file_name() == ".git" {
             continue;
         }
         let destination = to.join(entry.file_name());
-        let kind = entry.file_type().map_err(SkillsSyncError::Io)?;
+        let kind = entry.file_type().map_err(SkillSyncError::Io)?;
         if kind.is_dir() {
             copy_directory(&entry.path(), &destination)?;
         } else if kind.is_file() {
-            std::fs::copy(entry.path(), destination).map_err(SkillsSyncError::Io)?;
+            std::fs::copy(entry.path(), destination).map_err(SkillSyncError::Io)?;
         } else {
             return Err(failure(
                 &entry.path(),
@@ -135,7 +135,7 @@ pub struct PreparedSources {
 }
 impl PreparedSources {
     pub fn fetch(manifest: &Manifest, client: &GitHubClient, token: Option<&str>) -> Result<Self> {
-        let checkout = tempfile::tempdir().map_err(SkillsSyncError::Io)?;
+        let checkout = tempfile::tempdir().map_err(SkillSyncError::Io)?;
         let mut groups: BTreeMap<String, Vec<Option<String>>> = BTreeMap::new();
         for entry in &manifest.skills.repos {
             let (owner, repo, subdir) = parse_repo_entry(entry);
@@ -244,7 +244,7 @@ fn git_output(root: &Path, args: &[&str]) -> Result<Vec<u8>> {
         .args(args)
         .current_dir(root)
         .output()
-        .map_err(SkillsSyncError::Io)?;
+        .map_err(SkillSyncError::Io)?;
     if !output.status.success() {
         return Err(failure(root, format!("git {} failed", args.join(" "))));
     }
@@ -401,15 +401,15 @@ fn apply_one(
             .retain(|entry| !(entry.skill == op.skill && entry.target == op.target));
         if let Err(err) = lock.write(lock_path) {
             *lock = before;
-            return Err(SkillsSyncError::Io(err).into());
+            return Err(SkillSyncError::Io(err).into());
         }
         return Ok(());
     }
-    std::fs::create_dir_all(&op.target).map_err(SkillsSyncError::Io)?;
+    std::fs::create_dir_all(&op.target).map_err(SkillSyncError::Io)?;
     let staging = tempfile::Builder::new()
-        .prefix(".skills-sync-")
+        .prefix(".skill-sync-")
         .tempdir_in(&op.target)
-        .map_err(SkillsSyncError::Io)?;
+        .map_err(SkillSyncError::Io)?;
     let old_path = op
         .previous
         .as_ref()
@@ -436,14 +436,14 @@ fn apply_one(
     let backup = staging.path().join("previous");
     let backed_up = matches!(op.action, Action::Update | Action::Remove);
     if backed_up {
-        std::fs::rename(old_path.as_ref().unwrap(), &backup).map_err(SkillsSyncError::Io)?;
+        std::fs::rename(old_path.as_ref().unwrap(), &backup).map_err(SkillSyncError::Io)?;
     }
     let before = lock.clone();
     let mut installed = false;
     let result = (|| -> Result<()> {
         if let Some(skill) = replacement {
             std::fs::rename(staging.path().join("new"), op.target.join(&skill.directory))
-                .map_err(SkillsSyncError::Io)?;
+                .map_err(SkillSyncError::Io)?;
             installed = true;
         }
         lock.installations
@@ -460,14 +460,14 @@ fn apply_one(
                 updated_at: now,
             });
         }
-        lock.write(lock_path).map_err(SkillsSyncError::Io)?;
+        lock.write(lock_path).map_err(SkillSyncError::Io)?;
         Ok(())
     })();
     if let Err(err) = result {
         if let Some(skill) = replacement.filter(|_| installed) {
             let path = op.target.join(&skill.directory);
             if exists(&path) {
-                std::fs::remove_dir_all(&path).map_err(SkillsSyncError::Io)?;
+                std::fs::remove_dir_all(&path).map_err(SkillSyncError::Io)?;
             }
         }
         if backed_up {

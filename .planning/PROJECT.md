@@ -1,4 +1,4 @@
-# skills-sync
+# skill-sync
 
 ## What This Is
 
@@ -44,7 +44,7 @@ Declarative, zero-friction skill synchronization: run one command and your skill
 - Built in Rust for single-binary distribution, proper error handling, and cross-platform support
 - Key crates: `clap` (CLI), `toml`+`serde` (parsing), `reqwest` (GitHub API), `dialoguer` (prompts), `indicatif` (progress), `anyhow` (errors), `dirs` (paths)
 - GitHub Trees API (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) for efficient repo structure detection (one call per repo)
-- Manifest discovery: CWD `.skills.toml` (local), `~/.config/skills-sync/skills.toml` (global), or explicit `--config <path>`
+- Manifest discovery: CWD `.skills.toml` (local), `~/.config/skill-sync/skills.toml` (global), or explicit `--config <path>`
 - Shallow clones (`--depth 1`) for single-skill repos; sparse checkout for monorepo skill extraction
 - Distribution via Homebrew, `cargo install`, and pre-built binaries (x86_64 Linux, x86_64/aarch64 macOS)
 

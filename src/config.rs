@@ -1,8 +1,8 @@
-use crate::error::SkillsSyncError;
+use crate::error::SkillSyncError;
 use std::path::{Path, PathBuf};
 
 const LOCAL_MANIFESTS: [&str; 2] = [".skills.toml", "skills.toml"];
-const GLOBAL_MANIFEST_DIR: &str = "skills-sync";
+const GLOBAL_MANIFEST_DIR: &str = "skill-sync";
 const GLOBAL_MANIFEST_FILE: &str = "skills.toml";
 
 /// Discover the manifest file from multiple locations.
@@ -27,7 +27,7 @@ pub fn discover_manifest_in(
             return Ok(path.to_owned());
         }
         searched.push(path.to_owned());
-        return Err(SkillsSyncError::ManifestNotFound { searched }.into());
+        return Err(SkillSyncError::ManifestNotFound { searched }.into());
     }
 
     // 2. CWD local manifest (hidden name takes precedence).
@@ -50,7 +50,7 @@ pub fn discover_manifest_in(
         searched.push(global);
     }
 
-    Err(SkillsSyncError::ManifestNotFound { searched }.into())
+    Err(SkillSyncError::ManifestNotFound { searched }.into())
 }
 
 /// Resolve paths using the manifest's location, never the caller's working directory.
@@ -109,7 +109,7 @@ pub fn is_project_dir(path: &Path) -> bool {
 }
 
 pub fn global_target_dir() -> crate::error::Result<PathBuf> {
-    let home = dirs::home_dir().ok_or_else(|| SkillsSyncError::SyncFailed {
+    let home = dirs::home_dir().ok_or_else(|| SkillSyncError::SyncFailed {
         repo: "--global".to_string(),
         reason: "cannot resolve home directory for --global target".to_string(),
     })?;
@@ -121,23 +121,23 @@ pub fn config_home() -> crate::error::Result<PathBuf> {
     if let Some(path) = std::env::var_os("XDG_CONFIG_HOME").filter(|p| !p.is_empty()) {
         let path = PathBuf::from(path);
         if !path.is_absolute() {
-            return Err(SkillsSyncError::Config("XDG_CONFIG_HOME must be absolute".into()).into());
+            return Err(SkillSyncError::Config("XDG_CONFIG_HOME must be absolute".into()).into());
         }
         return Ok(path);
     }
     Ok(dirs::home_dir()
-        .ok_or_else(|| SkillsSyncError::Config("cannot resolve home directory".into()))?
+        .ok_or_else(|| SkillSyncError::Config("cannot resolve home directory".into()))?
         .join(".config"))
 }
 
 pub fn central_manifest_path() -> crate::error::Result<PathBuf> {
-    Ok(config_home()?.join("skills-sync/skills.toml"))
+    Ok(config_home()?.join("skill-sync/skills.toml"))
 }
 
 pub fn find_central_manifest() -> crate::error::Result<Option<PathBuf>> {
     let mut candidates = vec![central_manifest_path()?];
     if let Some(platform) = dirs::config_dir() {
-        candidates.push(platform.join("skills-sync/skills.toml"));
+        candidates.push(platform.join("skill-sync/skills.toml"));
     }
     let old = global_target_dir()?;
     candidates.extend([old.join(".skills.toml"), old.join("skills.toml")]);

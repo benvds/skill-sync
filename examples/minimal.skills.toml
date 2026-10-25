@@ -3,11 +3,11 @@
 # ============================================================================
 #
 # This is the simplest possible manifest: one repo that has a SKILL.md at
-# its root. skills-sync installs it as a single skill.
+# its root. skill-sync installs it as a single skill.
 #
 # To use this file:
 #   cp examples/minimal.skills.toml .skills.toml
-#   skills-sync
+#   skill-sync
 #
 # ============================================================================
 

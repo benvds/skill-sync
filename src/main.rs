@@ -1,11 +1,11 @@
 use clap::Parser;
-use skills_sync::{
+use skill_sync::{
     agents,
     cli::Cli,
     config,
     deployment::DeploymentLock,
     engine::{self, PreparedSources},
-    error::{Result, SkillsSyncError},
+    error::{Result, SkillSyncError},
     github::{self, AuthMethod},
     init,
     manifest::{self, Scope},
@@ -36,9 +36,9 @@ fn main() {
 }
 
 fn run(cli: Cli) -> Result<bool> {
-    let cwd = std::env::current_dir().map_err(SkillsSyncError::Io)?;
+    let cwd = std::env::current_dir().map_err(SkillSyncError::Io)?;
     let home = dirs::home_dir()
-        .ok_or_else(|| SkillsSyncError::Config("cannot resolve home directory".into()))?;
+        .ok_or_else(|| SkillSyncError::Config("cannot resolve home directory".into()))?;
     for agent in &cli.agents {
         agents::validate_agent(agent)?;
     }
@@ -89,13 +89,13 @@ fn run(cli: Cli) -> Result<bool> {
         }
     }
     if locations.is_empty() {
-        return Err(SkillsSyncError::ManifestNotFound {
+        return Err(SkillSyncError::ManifestNotFound {
             searched: vec![cwd.join(".skills.toml"), config::central_manifest_path()?],
         }
         .into());
     }
     if cli.target.is_some() && locations.len() > 1 {
-        return Err(SkillsSyncError::Config(
+        return Err(SkillSyncError::Config(
             "--target with multiple manifests is ambiguous; select --local or --config".into(),
         )
         .into());
@@ -106,7 +106,7 @@ fn run(cli: Cli) -> Result<bool> {
     let mut skill_names = BTreeMap::new();
     for (path, default_scope) in locations {
         let path = agents::absolute_path(&path, &cwd)?;
-        let content = std::fs::read_to_string(&path).map_err(SkillsSyncError::Io)?;
+        let content = std::fs::read_to_string(&path).map_err(SkillSyncError::Io)?;
         let manifest = manifest::parse_and_validate(&content, &path)?;
         let mut scope = if cli.global {
             Scope::User
@@ -140,12 +140,12 @@ fn run(cli: Cli) -> Result<bool> {
                 // Legacy explicit-target manifests were also used as user configurations.
                 scope = Scope::User;
             } else {
-                return Err(SkillsSyncError::Config("project targets must remain inside the manifest directory; use a user-scoped manifest for external targets".into()).into());
+                return Err(SkillSyncError::Config("project targets must remain inside the manifest directory; use a user-scoped manifest for external targets".into()).into());
             }
         }
         for target in &targets {
             if let Some(other) = claimed_targets.insert(target.clone(), path.clone()) {
-                return Err(SkillsSyncError::Config(format!(
+                return Err(SkillSyncError::Config(format!(
                     "{} and {} both manage {}; choose distinct targets",
                     other.display(),
                     path.display(),
@@ -164,9 +164,9 @@ fn run(cli: Cli) -> Result<bool> {
             config::target_dir_for_manifest(&path)
         };
         let mut lock =
-            DeploymentLock::read(&lock_path, &legacy_target).map_err(SkillsSyncError::Io)?;
+            DeploymentLock::read(&lock_path, &legacy_target).map_err(SkillSyncError::Io)?;
         lock.bind_scope(scope, path.parent().unwrap())
-            .map_err(SkillsSyncError::Io)?;
+            .map_err(SkillSyncError::Io)?;
         if cli.verbose {
             eprintln!(
                 "manifest: {}\nlock: {}\nscope: {:?}",
@@ -187,7 +187,7 @@ fn run(cli: Cli) -> Result<bool> {
                 eprintln!("warning: running unauthenticated (GitHub rate limits apply)");
             }
             let client = github::GitHubClient::new(token.clone(), auth.clone())
-                .map_err(|e| SkillsSyncError::HttpClient(e.to_string()))?;
+                .map_err(|e| SkillSyncError::HttpClient(e.to_string()))?;
             Some(PreparedSources::fetch(
                 &manifest,
                 &client,
@@ -223,7 +223,7 @@ fn run(cli: Cli) -> Result<bool> {
         .flat_map(|job| job.4.conflicts.iter().cloned())
         .collect();
     if !conflicts.is_empty() {
-        return Err(SkillsSyncError::Config(conflicts.join("\n")).into());
+        return Err(SkillSyncError::Config(conflicts.join("\n")).into());
     }
     if cli.dry_run {
         return Ok(jobs.iter().any(|job| !job.4.operations.is_empty()));
@@ -236,7 +236,7 @@ fn run(cli: Cli) -> Result<bool> {
         }
     }
     if !errors.is_empty() {
-        return Err(SkillsSyncError::Config(errors.join("\n")).into());
+        return Err(SkillSyncError::Config(errors.join("\n")).into());
     }
     Ok(false)
 }

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(
-    name = "skills-sync",
+    name = "skill-sync",
     about = "Sync Agent Skills from a manifest",
     version
 )]

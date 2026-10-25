@@ -1,4 +1,4 @@
-use skills_sync::{
+use skill_sync::{
     agents,
     deployment::DeploymentLock,
     engine::{self, Action, PreparedSkill},
@@ -235,7 +235,7 @@ fn legacy_lock_imports_only_its_original_target_and_preserves_unverified_edits()
     let mut meta = SkillMeta::new("org/repo", "v1");
     meta.directory = Some("skill".into());
     original.skills.insert("org/repo".into(), meta);
-    skills_sync::metadata::write_lock_file_atomic(&path, &original).unwrap();
+    skill_sync::metadata::write_lock_file_atomic(&path, &original).unwrap();
     let mut migrated = DeploymentLock::read(&path, &targets[0]).unwrap();
     assert_eq!(migrated.installations.len(), 1);
     assert_eq!(migrated.installations[0].target, targets[0]);
@@ -243,7 +243,7 @@ fn legacy_lock_imports_only_its_original_target_and_preserves_unverified_edits()
     apply(&sources, &targets, &mut migrated, &path);
     assert_eq!(migrated.schema_version, 2);
     assert_eq!(migrated.installations.len(), 2);
-    skills_sync::metadata::write_lock_file_atomic(&path, &original).unwrap();
+    skill_sync::metadata::write_lock_file_atomic(&path, &original).unwrap();
     let migrated = DeploymentLock::read(&path, &targets[0]).unwrap();
     assert!(engine::plan(&sources, &targets, &migrated)
         .conflicts
@@ -374,7 +374,7 @@ fn unknown_agents_modes_and_traversal_repos_fail_before_installation() {
 }
 
 fn cli(root: &Path, cwd: &Path, args: &[&str]) -> std::process::Output {
-    Command::new(env!("CARGO_BIN_EXE_skills-sync"))
+    Command::new(env!("CARGO_BIN_EXE_skill-sync"))
         .current_dir(cwd)
         .env("HOME", root.join("home"))
         .env("XDG_CONFIG_HOME", root.join("xdg"))
@@ -541,7 +541,7 @@ fn resolves_multiple_pins_once_and_deploys_both_skills_to_all_targets() {
 
 #[test]
 fn prepared_sources_worker() {
-    use skills_sync::github::{AuthMethod, GitHubClient};
+    use skill_sync::github::{AuthMethod, GitHubClient};
     use std::io::{Read, Write};
     let Some(root) = std::env::var_os("SKILLS_SYNC_SOURCE_FIXTURE") else {
         return;

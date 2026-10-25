@@ -1,16 +1,16 @@
 # ============================================================================
-# skills-sync manifest
+# skill-sync manifest
 # ============================================================================
 #
-# This file tells skills-sync which skill repos to install.
-# Run `skills-sync` to sync all listed repos to your skills directory.
+# This file tells skill-sync which skill repos to install.
+# Run `skill-sync` to sync all listed repos to your skills directory.
 #
 # -- Usage --------------------------------------------------------------------
 #
-#   skills-sync              Sync all repos listed below
-#   skills-sync --dry-run    Preview changes without applying
-#   skills-sync --verbose    Show detailed sync output
-#   skills-sync --global     Sync to ~/.agents/skills/ instead of local
+#   skill-sync              Sync all repos listed below
+#   skill-sync --dry-run    Preview changes without applying
+#   skill-sync --verbose    Show detailed sync output
+#   skill-sync --global     Sync to ~/.agents/skills/ instead of local
 #
 # -- Format -------------------------------------------------------------------
 #
@@ -24,7 +24,7 @@
 #
 #   Single-skill repos have a SKILL.md at the repository root.
 #   Monorepos contain subdirectories, each with their own SKILL.md.
-#   skills-sync detects the layout automatically.
+#   skill-sync detects the layout automatically.
 #
 # -- Examples -----------------------------------------------------------------
 #

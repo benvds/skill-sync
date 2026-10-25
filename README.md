@@ -1,4 +1,4 @@
-# skills-sync
+# skill-sync
 
 Declarative [Agent Skills](https://agentskills.io/specification) installation for multiple AI agents. Maintain one personal manifest, add project-specific manifests, and synchronize independent copies with state tracked per skill and destination.
 
@@ -8,22 +8,22 @@ Declarative [Agent Skills](https://agentskills.io/specification) installation fo
 cargo install --path .
 
 # Create the central personal configuration
-skills-sync --global --init
-# Edit ~/.config/skills-sync/skills.toml, then:
-skills-sync --global
+skill-sync --global --init
+# Edit ~/.config/skill-sync/skills.toml, then:
+skill-sync --global
 
 # Add project-specific skills
 cd /path/to/project
-skills-sync --init
+skill-sync --init
 # Edit .skills.toml, then:
-skills-sync
+skill-sync
 ```
 
 A normal run processes the central user configuration and the nearest project manifest, if present. `--global` processes only the central configuration; `--local` processes only the project manifest. An explicit `--config` processes exactly that file.
 
 ## Central configuration
 
-The central configuration is `$XDG_CONFIG_HOME/skills-sync/skills.toml`, or `~/.config/skills-sync/skills.toml` when `XDG_CONFIG_HOME` is unset. This convention also applies on macOS. Its lock file is `skills.lock` in the same directory.
+The central configuration is `$XDG_CONFIG_HOME/skill-sync/skills.toml`, or `~/.config/skill-sync/skills.toml` when `XDG_CONFIG_HOME` is unset. This convention also applies on macOS. Its lock file is `skills.lock` in the same directory.
 
 ```toml
 [sync]
@@ -40,7 +40,7 @@ repos = [
 
 Each listed skill is copied to every selected agent's user skills directory. `copy` is the default and currently the supported installation mode: changing one copy does not alter another copy or the source. No symlinks to a temporary checkout or to your personal home directory are installed.
 
-For backward compatibility, central discovery also checks the previous platform-specific config directory (for example `~/Library/Application Support/skills-sync/skills.toml` on macOS), then `~/.agents/skills/.skills.toml` and `~/.agents/skills/skills.toml`. The first existing central configuration wins; these files are not merged. `--global --init` creates the new central path.
+For backward compatibility, central discovery also checks the previous platform-specific config directory (for example `~/Library/Application Support/skill-sync/skills.toml` on macOS), then `~/.agents/skills/.skills.toml` and `~/.agents/skills/skills.toml`. The first existing central configuration wins; these files are not merged. `--global --init` creates the new central path.
 
 ## Project configuration
 
@@ -80,9 +80,9 @@ These are the native destinations selected by `agents`. Paths in the project col
 | `goose` / `universal` | `~/.agents/skills` | `.agents/skills` |
 | `kiro` | `~/.kiro/skills` | `.kiro/skills` |
 
-Agent IDs are explicit: skills-sync installs to selected agents even if their application is not installed. Unknown IDs fail before installation. Agents resolving to the same physical destination, including symlink aliases, trigger one copy and one lock entry per skill.
+Agent IDs are explicit: skill-sync installs to selected agents even if their application is not installed. Unknown IDs fail before installation. Agents resolving to the same physical destination, including symlink aliases, trigger one copy and one lock entry per skill.
 
-Many agents also discover skills in other agents' directories. Identical names across user/project scopes or native/shared locations may therefore be visible more than once; the agents determine their own precedence. skills-sync warns when its selected manifests declare the same skill name. It does not promise that a project skill overrides a personal skill. Choose unique names or limit the agent selection when necessary. Local copying does not upload skills to ChatGPT web or other cloud runtimes.
+Many agents also discover skills in other agents' directories. Identical names across user/project scopes or native/shared locations may therefore be visible more than once; the agents determine their own precedence. skill-sync warns when its selected manifests declare the same skill name. It does not promise that a project skill overrides a personal skill. Choose unique names or limit the agent selection when necessary. Local copying does not upload skills to ChatGPT web or other cloud runtimes.
 
 ### Custom destinations
 
@@ -104,9 +104,9 @@ repos = ["anthropics/skills/skills/skill-creator"]
 `~/` expands to the current home directory. Other relative paths are relative to the manifest directory. Project destinations must remain inside that directory after symlinks and `..` have been resolved. An explicit project-scoped manifest also keeps `--target` inside its directory. A legacy manifest without `[sync]` can use an external `--target` as a user-scoped compatibility configuration. `--agent` overrides the selected agents for a run. `--target` overrides all configured destinations with one explicit directory, relative to the working directory; select a single manifest with `--local` or `--config` when both scopes exist.
 
 ```sh
-skills-sync --local --agent codex --agent claude-code
-skills-sync --global --agent codex,cursor
-skills-sync --config /path/to/skills.toml --target ~/.codex/skills
+skill-sync --local --agent codex --agent claude-code
+skill-sync --global --agent codex,cursor
+skill-sync --config /path/to/skills.toml --target ~/.codex/skills
 ```
 
 ### Existing skills collections
@@ -162,7 +162,7 @@ The `sha` tracks the remote tree; `content_hash` covers the installed files and 
 
 All selected manifests are planned before target changes begin. An unmanaged name collision, duplicate name within a manifest, or modified managed skill blocks the run. Local changes are preserved even with `--force`. To accept an upstream replacement, first move your edited copy to a backup location, then rerun sync; a missing managed copy can be reinstalled safely.
 
-Removing a source or deselecting an agent proposes removal only of copies owned by that manifest's lock, including destinations no longer selected. Deletion requires confirmation or `--force`. Declining deletion preserves both the files and their lock entries. Unmanaged skills are left alone. Updates and removals keep a temporary backup until the new lock has been saved; ordinary copy/lock-write failures restore the previous installation. An interrupted process can leave a hidden `.skills-sync-*` recovery directory; it is not automatically deleted on the next run.
+Removing a source or deselecting an agent proposes removal only of copies owned by that manifest's lock, including destinations no longer selected. Deletion requires confirmation or `--force`. Declining deletion preserves both the files and their lock entries. Unmanaged skills are left alone. Updates and removals keep a temporary backup until the new lock has been saved; ordinary copy/lock-write failures restore the previous installation. An interrupted process can leave a hidden `.skill-sync-*` recovery directory; it is not automatically deleted on the next run.
 
 Schema-1 locks are imported for their original single target only. Existing legacy files must match the fetched source before a content-hash baseline can be adopted; otherwise they are preserved as an unverified conflict. A lock's user/project scope cannot be changed in place: use separate manifests and locks for those scopes. Unknown lock schemas are rejected.
 

@@ -1,4 +1,4 @@
-use crate::error::SkillsSyncError;
+use crate::error::SkillSyncError;
 use reqwest::blocking::Client;
 use reqwest::header::{ACCEPT, AUTHORIZATION};
 use serde::Deserialize;
@@ -77,7 +77,7 @@ pub struct GitHubClient {
 impl GitHubClient {
     /// Create a new GitHub API client.
     ///
-    /// Sets User-Agent to "skills-sync/{version}" to avoid 403 responses.
+    /// Sets User-Agent to "skill-sync/{version}" to avoid 403 responses.
     pub fn new(token: Option<String>, auth_method: AuthMethod) -> Result<Self, reqwest::Error> {
         Self::with_base_url(token, auth_method, "https://api.github.com")
     }
@@ -89,7 +89,7 @@ impl GitHubClient {
         base_url: &str,
     ) -> Result<Self, reqwest::Error> {
         let client = Client::builder()
-            .user_agent(format!("skills-sync/{}", env!("CARGO_PKG_VERSION")))
+            .user_agent(format!("skill-sync/{}", env!("CARGO_PKG_VERSION")))
             .build()?;
         Ok(Self {
             client,
@@ -106,7 +106,7 @@ impl GitHubClient {
         let status = response.status().as_u16();
 
         if status == 404 {
-            return Err(SkillsSyncError::RepoNotFound {
+            return Err(SkillSyncError::RepoNotFound {
                 repo: format!("{}/{}", owner, repo),
             }
             .into());
@@ -120,7 +120,7 @@ impl GitHubClient {
 
         if !response.status().is_success() {
             let body = response.text().unwrap_or_default();
-            return Err(SkillsSyncError::GitHubApi {
+            return Err(SkillSyncError::GitHubApi {
                 status,
                 message: body,
                 repo: format!("{}/{}", owner, repo),
@@ -129,7 +129,7 @@ impl GitHubClient {
         }
 
         response.json::<RepoInfo>().map_err(|e| {
-            SkillsSyncError::GitHubApi {
+            SkillSyncError::GitHubApi {
                 status,
                 message: e.to_string(),
                 repo: format!("{}/{}", owner, repo),
@@ -155,7 +155,7 @@ impl GitHubClient {
         let status = response.status().as_u16();
 
         if status == 404 {
-            return Err(SkillsSyncError::RepoNotFound {
+            return Err(SkillSyncError::RepoNotFound {
                 repo: format!("{}/{}", owner, repo),
             }
             .into());
@@ -169,7 +169,7 @@ impl GitHubClient {
 
         if !response.status().is_success() {
             let body = response.text().unwrap_or_default();
-            return Err(SkillsSyncError::GitHubApi {
+            return Err(SkillSyncError::GitHubApi {
                 status,
                 message: body,
                 repo: format!("{}/{}", owner, repo),
@@ -178,7 +178,7 @@ impl GitHubClient {
         }
 
         response.json::<TreeResponse>().map_err(|e| {
-            SkillsSyncError::GitHubApi {
+            SkillSyncError::GitHubApi {
                 status,
                 message: e.to_string(),
                 repo: format!("{}/{}", owner, repo),
@@ -203,7 +203,7 @@ impl GitHubClient {
         }
 
         req.send().map_err(|e| {
-            SkillsSyncError::NetworkError {
+            SkillSyncError::NetworkError {
                 repo: repo.to_string(),
                 reason: e.to_string(),
             }
@@ -214,8 +214,8 @@ impl GitHubClient {
 
 /// Check response headers for rate limit exhaustion.
 ///
-/// Returns Some(SkillsSyncError::RateLimited) if remaining is 0.
-fn check_rate_limit(response: &reqwest::blocking::Response) -> Option<SkillsSyncError> {
+/// Returns Some(SkillSyncError::RateLimited) if remaining is 0.
+fn check_rate_limit(response: &reqwest::blocking::Response) -> Option<SkillSyncError> {
     let remaining = response
         .headers()
         .get("x-ratelimit-remaining")
@@ -229,7 +229,7 @@ fn check_rate_limit(response: &reqwest::blocking::Response) -> Option<SkillsSync
         .and_then(|v| v.parse::<i64>().ok());
 
     if remaining == Some(0) {
-        Some(SkillsSyncError::RateLimited {
+        Some(SkillSyncError::RateLimited {
             remaining: 0,
             reset_epoch: reset,
         })

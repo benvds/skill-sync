@@ -1,5 +1,5 @@
-use skills_sync::metadata::{LockFile, SkillMeta};
-use skills_sync::sync::{build_clone_url, execute_remove, skill_dir_name};
+use skill_sync::metadata::{LockFile, SkillMeta};
+use skill_sync::sync::{build_clone_url, execute_remove, skill_dir_name};
 use tempfile::TempDir;
 
 // --- skill_dir_name tests ---
@@ -66,7 +66,7 @@ fn execute_remove_deletes_directory() {
         SkillMeta::new("owner/repo", "sha1"),
     );
     let lock_path = tmp.path().join(".skills.lock");
-    skills_sync::metadata::write_lock_file_atomic(&lock_path, &lock_file).unwrap();
+    skill_sync::metadata::write_lock_file_atomic(&lock_path, &lock_file).unwrap();
 
     execute_remove(&skill_dir, &lock_path, &mut lock_file, "owner/repo")
         .expect("execute_remove should succeed");
@@ -76,10 +76,10 @@ fn execute_remove_deletes_directory() {
 #[test]
 fn execute_remove_nonexistent_returns_error() {
     let tmp = TempDir::new().unwrap();
-    let path = std::path::Path::new("/tmp/skills-sync-nonexistent-skill-xyz");
+    let path = std::path::Path::new("/tmp/skill-sync-nonexistent-skill-xyz");
     let lock_path = tmp.path().join(".skills.lock");
     let mut lock_file = LockFile::new();
-    skills_sync::metadata::write_lock_file_atomic(&lock_path, &lock_file).unwrap();
+    skill_sync::metadata::write_lock_file_atomic(&lock_path, &lock_file).unwrap();
     let result = execute_remove(path, &lock_path, &mut lock_file, "owner/repo");
     assert!(result.is_err(), "execute_remove on nonexistent path should return error");
 }
@@ -101,7 +101,7 @@ fn execute_remove_with_lock_file() {
         SkillMeta::new("owner/repo", "abc"),
     );
     let lock_path = target_dir.join(".skills.lock");
-    skills_sync::metadata::write_lock_file_atomic(&lock_path, &lock_file).unwrap();
+    skill_sync::metadata::write_lock_file_atomic(&lock_path, &lock_file).unwrap();
 
     assert!(skill_dir.exists());
     assert!(lock_path.exists());
@@ -114,6 +114,6 @@ fn execute_remove_with_lock_file() {
     // Entry should be removed from in-memory lock_file
     assert!(!lock_file.skills.contains_key("owner/repo"), "entry should be removed from lock_file");
     // The lock file on disk should also be updated
-    let disk_lf = skills_sync::metadata::read_lock_file(&lock_path).unwrap();
+    let disk_lf = skill_sync::metadata::read_lock_file(&lock_path).unwrap();
     assert!(!disk_lf.skills.contains_key("owner/repo"), "entry should be removed from disk lock file");
 }

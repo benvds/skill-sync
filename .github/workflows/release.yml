@@ -36,7 +36,7 @@ jobs:
         run: |
           VERSION="${GITHUB_REF#refs/tags/}"
           TARGET="${{ matrix.platform.target }}"
-          BINARY="skills-sync"
+          BINARY="skill-sync"
           ARCHIVE="${BINARY}-${VERSION}-${TARGET}.tar.gz"
           cp "target/${TARGET}/release/${BINARY}" "${BINARY}"
           tar -czf "${ARCHIVE}" "${BINARY}"

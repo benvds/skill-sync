@@ -1,14 +1,14 @@
 #!/bin/sh
-# install.sh — Download and install skills-sync from GitHub Releases
+# install.sh — Download and install skill-sync from GitHub Releases
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/benvds/skills-sync/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/benvds/skill-sync/main/install.sh | sh
 
 set -e
 
 # Repository benvds/name on GitHub
-REPO="benvds/skills-sync"
-BINARY="skills-sync"
+REPO="benvds/skill-sync"
+BINARY="skill-sync"
 INSTALL_DIR="${HOME}/.local/bin"
 
 # Detect OS and architecture

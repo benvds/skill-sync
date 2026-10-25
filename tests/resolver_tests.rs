@@ -1,6 +1,6 @@
-use skills_sync::github::{TreeEntry, TreeResponse};
-use skills_sync::metadata::SkillMeta;
-use skills_sync::resolver::{
+use skill_sync::github::{TreeEntry, TreeResponse};
+use skill_sync::metadata::SkillMeta;
+use skill_sync::resolver::{
     detect_skills, resolve, skill_key, RemoteSkill, RepoSkills, SyncAction,
 };
 use std::collections::HashMap;
@@ -425,7 +425,7 @@ fn legacy_lock_triggers_migration_even_if_sha_is_unchanged() {
 
 #[test]
 fn pinned_skills_require_an_existing_skill_file() {
-    use skills_sync::resolver::detect_pinned_skill;
+    use skill_sync::resolver::detect_pinned_skill;
     let tree = make_tree(&[
         ("skills/valid/SKILL.md", "blob"),
         ("skills/not-a-file/SKILL.md", "tree"),

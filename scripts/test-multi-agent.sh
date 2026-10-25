@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cargo build --quiet --manifest-path "$PROJECT_ROOT/Cargo.toml"
-python3 - "$PROJECT_ROOT/target/debug/skills-sync" <<'PY'
+python3 - "$PROJECT_ROOT/target/debug/skill-sync" <<'PY'
 import hashlib
 import os
 from pathlib import Path
@@ -13,12 +13,12 @@ import sys
 import tempfile
 
 binary = sys.argv[1]
-with tempfile.TemporaryDirectory(prefix="skills-sync-multi-") as temporary:
+with tempfile.TemporaryDirectory(prefix="skill-sync-multi-") as temporary:
     root = Path(temporary)
     home, config, project = root / "home", root / "config", root / "project"
-    (config / "skills-sync").mkdir(parents=True)
+    (config / "skill-sync").mkdir(parents=True)
     project.mkdir()
-    user_config = config / "skills-sync/skills.toml"
+    user_config = config / "skill-sync/skills.toml"
     user_config.write_text('''[sync]
 scope = "user"
 agents = ["codex", "goose", "claude-code", "cursor"]

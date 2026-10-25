@@ -1,4 +1,4 @@
-use skills_sync::init::run_init;
+use skill_sync::init::run_init;
 use tempfile::TempDir;
 
 #[test]
@@ -75,7 +75,7 @@ fn test_init_content_has_header() {
     let content = std::fs::read_to_string(&path).unwrap();
 
     assert!(
-        content.contains("skills-sync manifest"),
+        content.contains("skill-sync manifest"),
         "Should contain header"
     );
 }
@@ -127,7 +127,7 @@ fn test_init_generated_manifest_passes_validation() {
     let content = std::fs::read_to_string(&path).unwrap();
 
     // Should pass our own manifest validation
-    let result = skills_sync::manifest::parse_and_validate(&content, &path);
+    let result = skill_sync::manifest::parse_and_validate(&content, &path);
     assert!(
         result.is_ok(),
         "Generated manifest should pass validation: {:?}",

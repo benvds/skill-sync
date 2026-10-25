@@ -1,7 +1,7 @@
-use skills_sync::config::target_dir_for_manifest;
-use skills_sync::metadata::{read_lock_file, write_lock_file_atomic, LockFile, SkillMeta};
-use skills_sync::resolver::{resolve, RemoteSkill, RepoSkills, SyncAction};
-use skills_sync::sync::{execute_install, execute_sync_plan, execute_update, read_skill_name};
+use skill_sync::config::target_dir_for_manifest;
+use skill_sync::metadata::{read_lock_file, write_lock_file_atomic, LockFile, SkillMeta};
+use skill_sync::resolver::{resolve, RemoteSkill, RepoSkills, SyncAction};
+use skill_sync::sync::{execute_install, execute_sync_plan, execute_update, read_skill_name};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::process::Command;
@@ -260,7 +260,7 @@ fn cli_uses_config_location_and_respects_init_paths() {
     ] {
         let base = tmp.path().join(folder);
         let manifest = base.join("skills.toml");
-        let output = Command::new(env!("CARGO_BIN_EXE_skills-sync"))
+        let output = Command::new(env!("CARGO_BIN_EXE_skill-sync"))
             .args(["--init", "--config"])
             .arg(&manifest)
             .output()
@@ -269,7 +269,7 @@ fn cli_uses_config_location_and_respects_init_paths() {
         if folder == "project" {
             std::fs::write(base.join("package.json"), "{}").unwrap();
         }
-        let output = Command::new(env!("CARGO_BIN_EXE_skills-sync"))
+        let output = Command::new(env!("CARGO_BIN_EXE_skill-sync"))
             .current_dir(tmp.path())
             .env("HOME", tmp.path())
             .env("XDG_CONFIG_HOME", tmp.path().join("user-config"))
@@ -286,7 +286,7 @@ fn cli_uses_config_location_and_respects_init_paths() {
         );
         assert!(tmp.path().join(expected).is_dir());
         assert!(!tmp.path().join(".claude").exists());
-        let automatic = Command::new(env!("CARGO_BIN_EXE_skills-sync"))
+        let automatic = Command::new(env!("CARGO_BIN_EXE_skill-sync"))
             .current_dir(&base)
             .env("HOME", tmp.path())
             .env("XDG_CONFIG_HOME", tmp.path().join("user-config"))
@@ -312,7 +312,7 @@ fn cli_uses_config_location_and_respects_init_paths() {
 fn cli_global_target_override_and_dry_run() {
     let tmp = TempDir::new().unwrap();
     let run = |args: &[&str]| {
-        Command::new(env!("CARGO_BIN_EXE_skills-sync"))
+        Command::new(env!("CARGO_BIN_EXE_skill-sync"))
             .current_dir(tmp.path())
             .env("HOME", tmp.path())
             .env("XDG_CONFIG_HOME", tmp.path().join(".config"))
@@ -322,7 +322,7 @@ fn cli_global_target_override_and_dry_run() {
             .unwrap()
     };
     assert!(run(&["--global", "--init"]).status.success());
-    let global = tmp.path().join(".config/skills-sync/skills.toml");
+    let global = tmp.path().join(".config/skill-sync/skills.toml");
     assert!(global.is_file());
     // A local manifest must not override the global one.
     std::fs::write(tmp.path().join(".skills.toml"), "invalid toml [").unwrap();

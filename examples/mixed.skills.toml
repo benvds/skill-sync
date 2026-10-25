@@ -8,12 +8,12 @@
 #   - Monorepo auto-detect: repo with skill subdirectories (all installed)
 #   - Subdirectory pin: exact path to one skill in a monorepo
 #
-# skills-sync handles all three layouts automatically — just list the repos
+# skill-sync handles all three layouts automatically — just list the repos
 # and it figures out what to install.
 #
 # To use this file:
 #   cp examples/mixed.skills.toml .skills.toml
-#   skills-sync
+#   skill-sync
 #
 # ============================================================================
 

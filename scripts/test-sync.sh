@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # =============================================================================
-# scripts/test-sync.sh — Manual integration test for skills-sync
+# scripts/test-sync.sh — Manual integration test for skill-sync
 # =============================================================================
 #
 # Exercises the core CLI workflows in a temporary directory:
-#   Test 1: skills-sync --init creates a manifest
+#   Test 1: skill-sync --init creates a manifest
 #   Test 2: --dry-run exits 2 when changes are pending
 #   Test 3: --verbose --dry-run shows detailed output
 #   Test 4: sync actually installs skills (uses --force to skip prompts)
@@ -30,7 +30,7 @@ export CARGO_TERM_COLOR=never
 TEST_ROOT=$(mktemp -d)
 trap 'rm -rf "$TEST_ROOT"' EXIT
 
-echo "=== skills-sync integration tests ==="
+echo "=== skill-sync integration tests ==="
 echo "Project root: $PROJECT_ROOT"
 echo "Temp dir:     $TEST_ROOT"
 echo ""

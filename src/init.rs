@@ -1,24 +1,24 @@
-use crate::error::SkillsSyncError;
+use crate::error::SkillSyncError;
 use std::path::Path;
 
 /// The documented sample .skills.toml template.
 /// Tutorial-style with full header, usage section, format explanation,
 /// and commented examples -- self-teaching for new users.
 const INIT_TEMPLATE: &str = r#"# ============================================================================
-# skills-sync manifest
+# skill-sync manifest
 # ============================================================================
 #
-# This file tells skills-sync which skill repos to install.
-# Run `skills-sync` to sync all listed repos to your skills directory.
+# This file tells skill-sync which skill repos to install.
+# Run `skill-sync` to sync all listed repos to your skills directory.
 #
 # -- Usage --------------------------------------------------------------------
 #
-#   skills-sync              Sync all repos listed below
-#   skills-sync --dry-run    Preview changes without applying
-#   skills-sync --verbose    Show detailed sync output
-#   skills-sync --global     Sync the central user configuration
-#   skills-sync --local      Sync only this project's manifest
-#   skills-sync --target ~/.codex/skills  Use an explicit skills directory
+#   skill-sync              Sync all repos listed below
+#   skill-sync --dry-run    Preview changes without applying
+#   skill-sync --verbose    Show detailed sync output
+#   skill-sync --global     Sync the central user configuration
+#   skill-sync --local      Sync only this project's manifest
+#   skill-sync --target ~/.codex/skills  Use an explicit skills directory
 #
 # Skills are installed next to this file in an existing skills directory.
 # From a project root, the target is .agents/skills/.
@@ -35,7 +35,7 @@ const INIT_TEMPLATE: &str = r#"# ===============================================
 #
 #   Single-skill repos have a SKILL.md at the repository root.
 #   Monorepos contain subdirectories, each with their own SKILL.md.
-#   skills-sync detects the layout automatically.
+#   skill-sync detects the layout automatically.
 #
 #   For monorepo skills, specify the subdirectory path:
 #
@@ -83,16 +83,16 @@ pub fn run_init_global(path: &Path) -> crate::error::Result<()> {
 
 fn write_template(path: &Path, template: &str) -> crate::error::Result<()> {
     if path.exists() {
-        return Err(SkillsSyncError::ManifestAlreadyExists {
+        return Err(SkillSyncError::ManifestAlreadyExists {
             path: path.to_owned(),
         }
         .into());
     }
 
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
-        std::fs::create_dir_all(parent).map_err(SkillsSyncError::Io)?;
+        std::fs::create_dir_all(parent).map_err(SkillSyncError::Io)?;
     }
-    std::fs::write(path, template).map_err(SkillsSyncError::Io)?;
+    std::fs::write(path, template).map_err(SkillSyncError::Io)?;
 
     eprintln!("Created {}", path.display());
     Ok(())
