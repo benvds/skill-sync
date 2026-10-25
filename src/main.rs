@@ -225,6 +225,11 @@ fn run(cli: Cli) -> Result<bool> {
     if !conflicts.is_empty() {
         return Err(SkillSyncError::Config(conflicts.join("\n")).into());
     }
+    engine::confirm_bulk_install(
+        engine::new_skill_count(jobs.iter().map(|job| &job.4)),
+        cli.force,
+        cli.dry_run,
+    )?;
     if cli.dry_run {
         return Ok(jobs.iter().any(|job| !job.4.operations.is_empty()));
     }

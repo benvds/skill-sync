@@ -52,9 +52,33 @@ pub struct Skills {
     pub repos: Vec<String>,
 }
 
+/// Split an optional Git tag, branch or commit from a source, after its path.
+pub fn split_revision(entry: &str) -> (&str, Option<&str>) {
+    match entry.split_once('@') {
+        Some((source, revision)) => (source, Some(revision)),
+        None => (entry, None),
+    }
+}
+
+fn valid_revision(revision: &str) -> bool {
+    !revision.is_empty()
+        && !revision.starts_with('-')
+        && !revision.contains("..")
+        && !revision.contains("@{")
+        && revision.split('/').all(|part| {
+            !part.is_empty()
+                && !part.starts_with('.')
+                && !part.ends_with('.')
+                && !part.ends_with(".lock")
+        })
+        && revision
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || "._-/+".contains(c))
+}
+
 /// Parse a manifest repo entry into (owner, repo_name, optional subdirectory).
 ///
-/// Format: `owner/repo` or `owner/repo/path/to/skill`
+/// Format: `owner/repo` or `owner/repo/path/to/skill`, optionally with `@revision`.
 /// The first two path segments are always owner and repo.
 /// Any remaining segments form the subdirectory path.
 ///
@@ -63,7 +87,8 @@ pub struct Skills {
 ///   "anthropics/skills/skills/skill-creator" → ("anthropics", "skills", Some("skills/skill-creator"))
 ///   "owner/repo/a/b/c"                       → ("owner", "repo", Some("a/b/c"))
 pub fn parse_repo_entry(entry: &str) -> (&str, &str, Option<&str>) {
-    let mut parts = entry.splitn(3, '/');
+    let (source, _) = split_revision(entry);
+    let mut parts = source.splitn(3, '/');
     let owner = parts.next().unwrap_or("");
     let repo = parts.next().unwrap_or("");
     let subdir = parts.next(); // None if only owner/repo
@@ -130,12 +155,23 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
         .skills
         .repos
         .into_iter()
-        .map(|r| r.trim().trim_end_matches('/').to_string())
+        .map(|r| {
+            let (source, revision) = split_revision(r.trim());
+            let source = source.trim_end_matches('/');
+            match revision {
+                Some(revision) => format!("{source}@{revision}"),
+                None => source.to_string(),
+            }
+        })
         .collect();
 
     // Step 5: Validate repo format
     for repo in &manifest.skills.repos {
-        if !REPO_PATTERN.is_match(repo) || repo.split('/').any(|part| part == "." || part == "..") {
+        let (source, revision) = split_revision(repo);
+        if !REPO_PATTERN.is_match(source)
+            || source.split('/').any(|part| part == "." || part == "..")
+            || revision.is_some_and(|revision| !valid_revision(revision))
+        {
             return Err(SkillSyncError::InvalidRepo { repo: repo.clone() }.into());
         }
     }

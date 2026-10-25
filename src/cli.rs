@@ -36,7 +36,7 @@ pub struct Cli {
     #[arg(long)]
     pub dry_run: bool,
 
-    /// Skip confirmation prompts for CI usage
+    /// Confirm bulk installations and managed removals for CI usage
     #[arg(long)]
     pub force: bool,
 

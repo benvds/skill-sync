@@ -66,6 +66,11 @@ pub struct RepoInfo {
     pub default_branch: String,
 }
 
+#[derive(Debug, Deserialize)]
+struct CommitInfo {
+    sha: String,
+}
+
 /// GitHub API client with authentication and rate limit handling.
 pub struct GitHubClient {
     client: Client,
@@ -75,6 +80,71 @@ pub struct GitHubClient {
 }
 
 impl GitHubClient {
+    fn revision_url(
+        &self,
+        owner: &str,
+        repo: &str,
+        resource: &str,
+        revision: &str,
+    ) -> crate::error::Result<String> {
+        let mut url = reqwest::Url::parse(&format!(
+            "{}/repos/{owner}/{repo}/{resource}/",
+            self.base_url
+        ))
+        .map_err(|e| SkillSyncError::Config(format!("invalid GitHub API base URL: {e}")))?;
+        url.path_segments_mut()
+            .map_err(|_| {
+                SkillSyncError::Config("GitHub API URL must support path segments".into())
+            })?
+            .pop_if_empty()
+            .push(revision);
+        Ok(url.to_string())
+    }
+
+    /// Resolve a tag, branch or abbreviated/full commit to an immutable commit SHA.
+    /// The checkout uses this SHA, so a moving ref cannot race discovery.
+    pub fn resolve_revision(
+        &self,
+        owner: &str,
+        repo: &str,
+        revision: &str,
+    ) -> crate::error::Result<String> {
+        let slug = format!("{owner}/{repo}");
+        let url = self.revision_url(owner, repo, "commits", revision)?;
+        let response = self.send_request(&url, &slug)?;
+        let status = response.status().as_u16();
+        if status == 403 || status == 429 {
+            if let Some(err) = check_rate_limit(&response) {
+                return Err(err.into());
+            }
+        }
+        if status == 404 || status == 422 {
+            return Err(SkillSyncError::Config(format!(
+                "revision `{revision}` not found in `{slug}`; check the exact tag, branch or commit and repository access"
+            )).into());
+        }
+        if !response.status().is_success() {
+            return Err(SkillSyncError::GitHubApi {
+                status,
+                message: response.text().unwrap_or_default(),
+                repo: slug,
+            }
+            .into());
+        }
+        let commit: CommitInfo = response.json().map_err(|e| SkillSyncError::GitHubApi {
+            status,
+            message: e.to_string(),
+            repo: slug.clone(),
+        })?;
+        if commit.sha.len() != 40 || !commit.sha.bytes().all(|b| b.is_ascii_hexdigit()) {
+            return Err(SkillSyncError::Config(format!(
+                "invalid commit SHA returned for `{slug}@{revision}`"
+            ))
+            .into());
+        }
+        Ok(commit.sha)
+    }
+
     /// Create a new GitHub API client.
     ///
     /// Sets User-Agent to "skill-sync/{version}" to avoid 403 responses.
@@ -148,8 +218,8 @@ impl GitHubClient {
         branch: &str,
     ) -> crate::error::Result<TreeResponse> {
         let url = format!(
-            "{}/repos/{}/{}/git/trees/{}?recursive=1",
-            self.base_url, owner, repo, branch
+            "{}?recursive=1",
+            self.revision_url(owner, repo, "git/trees", branch)?
         );
         let response = self.send_request(&url, &format!("{}/{}", owner, repo))?;
         let status = response.status().as_u16();

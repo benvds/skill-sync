@@ -128,15 +128,38 @@ This preserves use from `~/.agents/skills`, `~/.codex/skills`, or a collection a
 [skills]
 repos = [
     "owner/single-skill-repo",                 # SKILL.md at repository root
-    "owner/collection",                        # immediate skill subdirectories
+    "owner/collection",                        # all descendant skills
+    "owner/collection/skills/team",            # all skills below a collection folder
     "anthropics/skills/skills/skill-creator",    # exact subdirectory
     "anthropics/skills/skills/pdf",             # another pin from the same repo
 ]
 ```
 
-Entries use `owner/repo` or `owner/repo/path/to/skill`. Paths containing `.` or `..` segments are rejected. Duplicate entries are rejected; different pins from one repository are combined before reconciliation, so one pin does not remove another.
+Entries use `owner/repo` or `owner/repo/path/to/skill-or-collection`, optionally followed by `@revision`. Paths containing `.` or `..` segments are rejected. Duplicate entries are rejected; different selections from one repository are combined before reconciliation, so one selection does not remove another.
 
-Each distinct repository is fetched once per manifest/run and reused for all its skills and agent destinations. A pinned path must actually contain `SKILL.md`. Auto-detection recognizes a root skill or skills directly below the repository root; use explicit pins for deeper layouts. The checkout's Git tree is authoritative. If the API tree is stale or truncated, discovery is refreshed from the checkout before installation and version tracking.
+If the selected repository root or directory contains `SKILL.md`, that skill is installed. Otherwise all descendant directories containing `SKILL.md` are selected, at any depth and only inside the requested folder. Overlapping selections are deduplicated. A selection with no skills fails before target changes.
+
+Each distinct repository/revision pair is fetched once per manifest/run and reused for all its skills and agent destinations. The checkout's Git tree is authoritative. If the API tree is stale or truncated, discovery is refreshed from the checkout before installation and version tracking.
+
+A run installing **10 or more distinct skills** prints a warning and requires confirmation (default: no) before any target or lock is changed. Agent copies count once, and the count covers all selected manifests. A declined or unavailable prompt cancels the complete run. `--dry-run` shows the warning and plan without prompting; `--force` explicitly accepts bulk installation for CI. Up-to-date skills and updates do not count as new installations.
+
+### Pinning versions
+
+```toml
+[skills]
+repos = [
+    "owner/collection/skills/pdf@v1.2.3",       # exact release tag
+    "owner/another-skill@1.2.3",               # exact tag without a v prefix
+    "owner/team-skills@release/stable",        # tag or branch containing a slash
+    "owner/project-skills/skills/deploy@0123456789abcdef0123456789abcdef01234567", # commit
+]
+```
+
+The `@revision` suffix comes after the complete source path. It accepts an exact tag, branch, or full/abbreviated commit SHA. Release versions use their exact Git tag spelling (`@v1.2.3` and `@1.2.3` are different tags). Version ranges such as `^1.2`, `~1.2` and `latest` version selection are not supported; `@latest` only works if the repository actually has a tag or branch named `latest`. Without a revision, sync follows the default branch as before.
+
+Explicit revisions are resolved through GitHub to a full commit SHA before fetching. The checkout and lock record that commit, including when it is older than the current branch head. An unknown revision fails without falling back to the default branch. A full commit SHA is the durable pin: tags and branches can move upstream and are resolved again on each run. The lock tracks installed state, rather than freezing a moving tag. Changing a pin updates the existing installation. Different skills in a repository can use different revisions; overlapping selections of the same skill at conflicting revisions fail before installation.
+
+The implementation follows the explicit Git-ref approach used by [Cargo](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choice-of-commit), [npm](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#git-urls-as-dependencies), and [pip](https://pip.pypa.io/en/stable/topics/vcs-support/#git). The compact suffix preserves existing string manifests. Exact refs avoid introducing a semver range resolver and dependency-update commands; full SHA resolution ensures discovery and checkout use the same snapshot.
 
 Installed directories use `name` from the `SKILL.md` YAML frontmatter. Required names and descriptions are validated; scripts, references, assets, hidden supporting files and executable file permissions are copied. Git internals are excluded. Bundled symlinks and special files are rejected rather than following them outside the source tree. Two sources declaring the same installed name in one manifest are a conflict.
 
@@ -158,7 +181,7 @@ installed_at = "2026-10-25T12:00:00Z"
 updated_at = "2026-10-25T12:00:00Z"
 ```
 
-The `sha` tracks the remote tree; `content_hash` covers the installed files and executable bits. An unchanged copy is skipped. Missing copies and newly selected destinations are installed independently. Successful operations update the lock atomically; a failed target does not mark its copy installed and does not discard successful targets' state. A later run retries what is missing.
+The `sha` tracks the resolved commit for explicit revision pins, or the remote tree for sources following the default branch; `content_hash` covers the installed files and executable bits. An unchanged copy is skipped. Missing copies and newly selected destinations are installed independently. Successful operations update the lock atomically; a failed target does not mark its copy installed and does not discard successful targets' state. A later run retries what is missing.
 
 All selected manifests are planned before target changes begin. An unmanaged name collision, duplicate name within a manifest, or modified managed skill blocks the run. Local changes are preserved even with `--force`. To accept an upstream replacement, first move your edited copy to a backup location, then rerun sync; a missing managed copy can be reinstalled safely.
 
@@ -180,7 +203,7 @@ Do not run concurrent synchronizations against the same manifest: lock files tra
 | `--agent ID` | Override agent selection; repeat or comma-separate IDs |
 | `--target PATH` | Replace the destination list with one explicit directory; conflicts with `--global` |
 | `--dry-run` | Resolve sources and print the plan; change no target/config/lock files |
-| `--force` | Confirm managed removals; never overwrite local edits or unmanaged skills |
+| `--force` | Confirm bulk installations and managed removals; never overwrite local edits or unmanaged skills |
 | `--verbose` | Print manifest, lock, scope and resolved target paths |
 
 Dry-run may fetch remote sources into temporary storage to validate the real skill names and files. Exit codes: `0` for success/up to date, `2` for a dry-run with pending changes, `1` for sync/configuration conflicts or errors. CLI argument errors also use exit code `2`.
@@ -200,4 +223,4 @@ cargo clippy --all-targets
 ./scripts/test-multi-agent.sh  # networked user + project + multi-target test
 ```
 
-Automated tests cover independent copies, shared target deduplication, central/project discovery, custom paths, per-target retries, deletion, local edits, rollback after lock failures, old locks and rebasing project locks. Source tests use local Git repositories and a local API fixture; they verify multiple pins reuse one checkout. Tests verify the portable filesystem layout without launching live AI agent sessions.
+Automated tests cover independent copies, shared target deduplication, central/project discovery, custom paths, per-target retries, deletion, local edits, rollback after lock failures, old locks and rebasing project locks. Source tests use local Git repositories and a local API fixture; they verify recursive collections, historical commit and tag pins, conflicting revisions, bulk-install confirmation, and reuse of a checkout for multiple selections at one revision. Tests verify the portable filesystem layout without launching live AI agent sessions.

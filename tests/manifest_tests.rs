@@ -160,9 +160,16 @@ fn test_valid_monorepo_subdir() {
 repos = ["anthropics/skills/skills/skill-creator"]
 "#;
     let result = parse_and_validate(content, Path::new("test.toml"));
-    assert!(result.is_ok(), "monorepo subdir entry should be valid: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "monorepo subdir entry should be valid: {:?}",
+        result.err()
+    );
     let manifest = result.unwrap();
-    assert_eq!(manifest.skills.repos[0], "anthropics/skills/skills/skill-creator");
+    assert_eq!(
+        manifest.skills.repos[0],
+        "anthropics/skills/skills/skill-creator"
+    );
 }
 
 #[test]
@@ -172,7 +179,11 @@ fn test_valid_deep_subdir() {
 repos = ["owner/repo/a/b/c"]
 "#;
     let result = parse_and_validate(content, Path::new("test.toml"));
-    assert!(result.is_ok(), "deep subdir entry should be valid: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "deep subdir entry should be valid: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -182,7 +193,11 @@ fn test_valid_single_segment_subdir() {
 repos = ["owner/repo/subdir"]
 "#;
     let result = parse_and_validate(content, Path::new("test.toml"));
-    assert!(result.is_ok(), "single-segment subdir entry should be valid: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "single-segment subdir entry should be valid: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -224,7 +239,10 @@ fn test_empty_repo_rejected() {
 repos = ["owner/"]
 "#;
     let result = parse_and_validate(content, Path::new("test.toml"));
-    assert!(result.is_err(), "owner/ after trim is 'owner' which should be rejected");
+    assert!(
+        result.is_err(),
+        "owner/ after trim is 'owner' which should be rejected"
+    );
 }
 
 #[test]
@@ -234,7 +252,11 @@ fn test_trailing_slash_trimmed_subdir() {
 repos = ["owner/repo/subdir/"]
 "#;
     let result = parse_and_validate(content, Path::new("test.toml"));
-    assert!(result.is_ok(), "trailing slash on subdir entry should be trimmed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "trailing slash on subdir entry should be trimmed: {:?}",
+        result.err()
+    );
     let manifest = result.unwrap();
     // After trimming trailing slash, should be "owner/repo/subdir"
     assert_eq!(manifest.skills.repos[0], "owner/repo/subdir");
@@ -248,7 +270,11 @@ fn test_duplicate_different_subdirs() {
 repos = ["owner/repo/sub1", "owner/repo/sub2"]
 "#;
     let result = parse_and_validate(content, Path::new("test.toml"));
-    assert!(result.is_ok(), "same owner/repo with different subdirs should not be duplicates: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "same owner/repo with different subdirs should not be duplicates: {:?}",
+        result.err()
+    );
 }
 
 #[test]
@@ -259,7 +285,10 @@ fn test_duplicate_exact_subdir() {
 repos = ["owner/repo/sub", "owner/repo/sub"]
 "#;
     let result = parse_and_validate(content, Path::new("test.toml"));
-    assert!(result.is_err(), "exact same subdir entry should be a duplicate");
+    assert!(
+        result.is_err(),
+        "exact same subdir entry should be a duplicate"
+    );
     let err = format!("{}", result.unwrap_err());
     assert!(err.contains("duplicate repo"));
 }
@@ -296,4 +325,78 @@ fn test_parse_repo_entry_single_segment_subdir() {
     assert_eq!(owner, "owner");
     assert_eq!(repo, "repo");
     assert_eq!(subdir, Some("subdir"));
+}
+
+#[test]
+fn revision_pins_preserve_paths_and_support_versions_commits_and_slash_refs() {
+    use skill_sync::manifest::split_revision;
+    for revision in [
+        "v1.2.3",
+        "1.2.3",
+        "release/v2.0.0",
+        "feature/next",
+        "abc1234",
+        "0123456789abcdef0123456789abcdef01234567",
+        "refs/tags/v1.0.0",
+    ] {
+        let entry = format!("owner/repo/skills/pdf@{revision}");
+        let content = format!("[skills]\nrepos = ['{entry}']");
+        let manifest = parse_and_validate(&content, Path::new("test.toml")).unwrap();
+        assert_eq!(manifest.skills.repos[0], entry);
+        assert_eq!(
+            parse_repo_entry(&entry),
+            ("owner", "repo", Some("skills/pdf"))
+        );
+        assert_eq!(
+            split_revision(&entry),
+            ("owner/repo/skills/pdf", Some(revision))
+        );
+    }
+    assert_eq!(
+        parse_repo_entry("owner/repo@v1.2.3"),
+        ("owner", "repo", None)
+    );
+    let manifest = parse_and_validate(
+        "[skills]\nrepos=[' owner/repo/skills/@v1.2.3 ']",
+        Path::new("test.toml"),
+    )
+    .unwrap();
+    assert_eq!(manifest.skills.repos[0], "owner/repo/skills@v1.2.3");
+}
+
+#[test]
+fn invalid_or_ambiguous_revisions_are_rejected() {
+    for revision in [
+        "",
+        "-option",
+        "a b",
+        "../main",
+        "main/",
+        "a//b",
+        ".hidden",
+        "a.lock",
+        "a..b",
+        "HEAD~1",
+        "HEAD^",
+        "v1@v2",
+        "v1?query",
+        "v1#fragment",
+        "^1.0.0",
+    ] {
+        let content = format!("[skills]\nrepos=['owner/repo@{revision}']");
+        assert!(
+            parse_and_validate(&content, Path::new("test.toml")).is_err(),
+            "accepted {revision}"
+        );
+    }
+    assert!(parse_and_validate(
+        "[skills]\nrepos=['owner/repo@v1', 'owner/repo@v1']",
+        Path::new("test.toml")
+    )
+    .is_err());
+    assert!(parse_and_validate(
+        "[skills]\nrepos=['owner/repo/a@v1', 'owner/repo/b@v2']",
+        Path::new("test.toml")
+    )
+    .is_ok());
 }
