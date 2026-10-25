@@ -69,6 +69,7 @@ pub struct RepoInfo {
 /// GitHub API client with authentication and rate limit handling.
 pub struct GitHubClient {
     client: Client,
+    base_url: String,
     token: Option<String>,
     pub auth_method: AuthMethod,
 }
@@ -78,11 +79,21 @@ impl GitHubClient {
     ///
     /// Sets User-Agent to "skills-sync/{version}" to avoid 403 responses.
     pub fn new(token: Option<String>, auth_method: AuthMethod) -> Result<Self, reqwest::Error> {
+        Self::with_base_url(token, auth_method, "https://api.github.com")
+    }
+
+    /// Alternate API endpoint for embedding and deterministic integration tests.
+    pub fn with_base_url(
+        token: Option<String>,
+        auth_method: AuthMethod,
+        base_url: &str,
+    ) -> Result<Self, reqwest::Error> {
         let client = Client::builder()
             .user_agent(format!("skills-sync/{}", env!("CARGO_PKG_VERSION")))
             .build()?;
         Ok(Self {
             client,
+            base_url: base_url.trim_end_matches('/').to_owned(),
             token,
             auth_method,
         })
@@ -90,7 +101,7 @@ impl GitHubClient {
 
     /// Get repository information (default branch, etc.).
     pub fn get_repo_info(&self, owner: &str, repo: &str) -> crate::error::Result<RepoInfo> {
-        let url = format!("https://api.github.com/repos/{}/{}", owner, repo);
+        let url = format!("{}/repos/{}/{}", self.base_url, owner, repo);
         let response = self.send_request(&url, &format!("{}/{}", owner, repo))?;
         let status = response.status().as_u16();
 
@@ -117,16 +128,14 @@ impl GitHubClient {
             .into());
         }
 
-        response
-            .json::<RepoInfo>()
-            .map_err(|e| {
-                SkillsSyncError::GitHubApi {
-                    status,
-                    message: e.to_string(),
-                    repo: format!("{}/{}", owner, repo),
-                }
-                .into()
-            })
+        response.json::<RepoInfo>().map_err(|e| {
+            SkillsSyncError::GitHubApi {
+                status,
+                message: e.to_string(),
+                repo: format!("{}/{}", owner, repo),
+            }
+            .into()
+        })
     }
 
     /// Get the repository tree (file listing) for a given branch.
@@ -139,8 +148,8 @@ impl GitHubClient {
         branch: &str,
     ) -> crate::error::Result<TreeResponse> {
         let url = format!(
-            "https://api.github.com/repos/{}/{}/git/trees/{}?recursive=1",
-            owner, repo, branch
+            "{}/repos/{}/{}/git/trees/{}?recursive=1",
+            self.base_url, owner, repo, branch
         );
         let response = self.send_request(&url, &format!("{}/{}", owner, repo))?;
         let status = response.status().as_u16();
@@ -168,16 +177,14 @@ impl GitHubClient {
             .into());
         }
 
-        response
-            .json::<TreeResponse>()
-            .map_err(|e| {
-                SkillsSyncError::GitHubApi {
-                    status,
-                    message: e.to_string(),
-                    repo: format!("{}/{}", owner, repo),
-                }
-                .into()
-            })
+        response.json::<TreeResponse>().map_err(|e| {
+            SkillsSyncError::GitHubApi {
+                status,
+                message: e.to_string(),
+                repo: format!("{}/{}", owner, repo),
+            }
+            .into()
+        })
     }
 
     /// Send an authenticated request to the GitHub API.

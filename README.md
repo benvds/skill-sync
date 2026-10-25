@@ -1,217 +1,203 @@
 # skills-sync
 
-Declarative Agent Skills synchronization for Codex and other agents that support the [Agent Skills specification](https://agentskills.io/specification). One command, your skills directory matches your manifest.
+Declarative [Agent Skills](https://agentskills.io/specification) installation for multiple AI agents. Maintain one personal manifest, add project-specific manifests, and synchronize independent copies with state tracked per skill and destination.
 
-## Quick Start
-
-1. Install skills-sync (see [Installation](#installation))
-2. Run `skills-sync --init` to generate a `.skills.toml` manifest
-3. Edit `.skills.toml` to list the skill repos you want
-4. Run `skills-sync` to sync
-
-Example output on first sync:
-
-```
-+ anthropics/skills/skills/skill-creator (install)
-+ github/awesome-copilot/skills/github-issues (install)
-sync plan: 2 install, 0 update, 0 remove, 0 up-to-date
-  installing anthropics/skills/skills/skill-creator...
-  installing github/awesome-copilot/skills/github-issues...
-done: 2 installed, 0 updated, 0 removed
-```
-
-## Installation
-
-### From source
+## Quick start
 
 ```sh
 cargo install --path .
-```
 
-### From release
+# Create the central personal configuration
+skills-sync --global --init
+# Edit ~/.config/skills-sync/skills.toml, then:
+skills-sync --global
 
-```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/skills-sync/main/install.sh | sh
-```
-
-> Note: Replace `OWNER` with the actual GitHub owner before the first release.
-
-## Manifest Format
-
-The manifest is a TOML file (`.skills.toml` by default; `skills.toml` is also discovered). It lists GitHub repos to sync skills from.
-
-### Single-skill repo
-
-A repo that has a `SKILL.md` at the repository root:
-
-```toml
-[skills]
-repos = [
-    "owner/single-skill-repo",
-]
-```
-
-skills-sync detects the `SKILL.md` at the root and installs the whole repo as one skill.
-
-### Monorepo (auto-detect)
-
-A repo that contains multiple skill subdirectories, each with their own `SKILL.md`:
-
-```toml
-[skills]
-repos = [
-    "owner/multi-skill-monorepo",
-]
-```
-
-skills-sync scans the repository tree and installs each subdirectory that contains a `SKILL.md` as a separate skill.
-
-### Subdirectory pin
-
-Install a specific skill from a monorepo without pulling in all skills from that repo:
-
-```toml
-[skills]
-repos = [
-    "anthropics/skills/skills/skill-creator",
-    "anthropics/skills/skills/pdf",
-]
-```
-
-The format is `"owner/repo/path/to/skill"` — the third segment and beyond are treated as the subdirectory path within the repo.
-
-### Mixing layouts
-
-All three formats can be combined in one manifest:
-
-```toml
-[skills]
-repos = [
-    "owner/single-skill-repo",                    # single-skill (auto-detect)
-    "owner/multi-skill-collection",               # monorepo (all skills, auto-detect)
-    "anthropics/skills/skills/skill-creator",     # specific skill from a monorepo
-]
-```
-
-See the [examples/](examples/) directory for copy-paste starting points:
-
-- [examples/minimal.skills.toml](examples/minimal.skills.toml) — single skill, minimal config
-- [examples/monorepo.skills.toml](examples/monorepo.skills.toml) — monorepo and subdirectory pin
-- [examples/mixed.skills.toml](examples/mixed.skills.toml) — all three layouts combined
-
-## Where skills are installed
-
-Automatic targets are based on the **manifest directory**, even when `--config` is run from elsewhere:
-
-| Manifest directory | Skills destination |
-|---|---|
-| Project root | `<project>/.agents/skills/` |
-| `.agents`, `.codex` or `.claude` | Its `skills/` subdirectory |
-| Any directory already named `skills` | That directory, directly |
-| `~/.agents/skills/` | `~/.agents/skills/` |
-| `~/.codex/skills/` | `~/.codex/skills/` |
-| Standalone configuration directory | Beside the manifest and lock file |
-
-A directory named `skills` takes precedence, even if it is itself a Git repository. Project detection recognizes `.git` directories and worktree files, `.hg`, agent directories/instructions, and common build manifests such as `Cargo.toml`, `package.json`, `pyproject.toml` and `go.mod`. A new project without these markers can use `--target .agents/skills` or add an `AGENTS.md` file. Symlinked directories are resolved before detection.
-
-The lock file always stays next to its manifest (`.skills.toml` → `.skills.lock`, `skills.toml` → `skills.lock`). No nested `.claude/skills` directory is created. Output is written to the terminal; there is no separate log file.
-
-```sh
-# Shared user skills
-mkdir -p ~/.agents/skills
-cd ~/.agents/skills
+# Add project-specific skills
+cd /path/to/project
 skills-sync --init
 # Edit .skills.toml, then:
 skills-sync
-
-# Codex skills, without creating skills/skills or .claude/skills
-mkdir -p ~/.codex/skills
-cd ~/.codex/skills
-skills-sync --init
-skills-sync
-
-# From a project root
-skills-sync --init
-skills-sync                       # installs to .agents/skills
-
-# Explicit destination (relative to the working directory)
-skills-sync --config /path/to/skills.toml --target ~/.codex/skills
-
-# Global mode has its own manifest by default
-skills-sync --global --init       # creates ~/.agents/skills/.skills.toml
-skills-sync --global
 ```
 
-Discovery checks `.skills.toml`, then `skills.toml`, in the current directory. It falls back to the platform config directory's `skills-sync/skills.toml` (for example `~/.config/skills-sync/skills.toml` on Linux). An explicit `--config` takes precedence. Use separate manifests for independently managed collections. If the same manifest is pointed at a new target, missing skills are installed there instead of being incorrectly treated as up to date.
+A normal run processes the central user configuration and the nearest project manifest, if present. `--global` processes only the central configuration; `--local` processes only the project manifest. An explicit `--config` processes exactly that file.
 
-Each installed directory uses the `name` from its `SKILL.md` YAML frontmatter, as required by the Agent Skills specification. Required names and descriptions are checked before installation; references, scripts and assets are preserved. Name collisions fail without overwriting existing skills. Existing locks without a directory field remain readable; legacy `owner--repo` installations in the selected target migrate to their declared skill names on the next sync. Skills in an old `.claude/skills` target are not automatically moved or deleted; select that target explicitly if it should still be managed.
+## Central configuration
 
-## CLI Reference
+The central configuration is `$XDG_CONFIG_HOME/skills-sync/skills.toml`, or `~/.config/skills-sync/skills.toml` when `XDG_CONFIG_HOME` is unset. This convention also applies on macOS. Its lock file is `skills.lock` in the same directory.
 
-| Flag | Description |
-|------|-------------|
-| `--init` | Generate a sample manifest; honors `--config` and `--global` |
-| `--config <PATH>` | Manifest path; automatic targets are relative to this file |
-| `--dry-run` | Show planned changes without executing; exits 2 if changes pending, 0 if up-to-date |
-| `--verbose` | Show detailed output including SHA comparisons and git command output |
-| `--global` | Use `~/.agents/skills/` and its manifest |
-| `--target <PATH>` | Explicit skills directory, e.g. `~/.codex/skills/`; conflicts with `--global` |
-| `--local` | Use automatic target detection (default; conflicts with `--global`) |
-| `--force` | Skip confirmation prompts (useful for CI) |
-| `--help` | Print help |
-| `--version` | Print version |
+```toml
+[sync]
+scope = "user"
+agents = ["codex", "claude-code", "cursor", "gemini-cli", "copilot", "opencode"]
+mode = "copy"
 
-## How It Works
+[skills]
+repos = [
+    "anthropics/skills/skills/skill-creator",
+    "github/awesome-copilot/skills/github-issues",
+]
+```
 
-skills-sync reads your manifest and queries the GitHub Trees API to detect which skills are present in each listed repository. It compares remote tree SHAs against the local lock file (`.skills.lock`) to determine what needs to be installed, updated, or removed. Skills are fetched via sparse git checkout so only the relevant files are downloaded. The lock file tracks installed state and is updated atomically after each operation.
+Each listed skill is copied to every selected agent's user skills directory. `copy` is the default and currently the supported installation mode: changing one copy does not alter another copy or the source. No symlinks to a temporary checkout or to your personal home directory are installed.
+
+For backward compatibility, central discovery also checks the previous platform-specific config directory (for example `~/Library/Application Support/skills-sync/skills.toml` on macOS), then `~/.agents/skills/.skills.toml` and `~/.agents/skills/skills.toml`. The first existing central configuration wins; these files are not merged. `--global --init` creates the new central path.
+
+## Project configuration
+
+Add `.skills.toml` at your project root and commit it with your project:
+
+```toml
+[sync]
+scope = "project"
+agents = ["codex", "claude-code", "cursor"]
+mode = "copy"
+
+[skills]
+repos = [
+    "your-org/project-skills",
+    "your-org/team-skills/skills/deploy",
+]
+```
+
+These skills are installed only inside that project. Personal skills remain in your home directory; they are not copied into each repository. Project manifests have their own source lists, agent selections and locks. Settings and source lists are not implicitly inherited or merged with the personal manifest.
+
+Discovery walks upward from the working directory and uses the nearest `.skills.toml` or `skills.toml` (the hidden name wins at the same level). It stops at a Git repository/worktree root or your home directory. This allows a monorepo package to have its own manifest. One run processes the nearest project manifest, not every ancestor manifest.
+
+The lock stays beside its manifest: `.skills.toml` → `.skills.lock`, `skills.toml` → `skills.lock`. A copied project lock is rebased to the current checkout/worktree before use, so it cannot prune installations in the original checkout. The lock contains local absolute target paths; it is rewritten when a copied checkout is synchronized.
+
+## Agent directories
+
+These are the native destinations selected by `agents`. Paths in the project column are relative to the manifest directory.
+
+| Agent ID | User destination | Project destination |
+|---|---|---|
+| `codex` | `~/.agents/skills` | `.agents/skills` |
+| `claude-code` | `~/.claude/skills` | `.claude/skills` |
+| `cursor` | `~/.cursor/skills` | `.cursor/skills` |
+| `gemini-cli` | `~/.gemini/skills` | `.gemini/skills` |
+| `copilot` / `github-copilot` | `~/.copilot/skills` | `.github/skills` |
+| `opencode` | `$XDG_CONFIG_HOME/opencode/skills` (default `~/.config/opencode/skills`) | `.opencode/skills` |
+| `goose` / `universal` | `~/.agents/skills` | `.agents/skills` |
+| `kiro` | `~/.kiro/skills` | `.kiro/skills` |
+
+Agent IDs are explicit: skills-sync installs to selected agents even if their application is not installed. Unknown IDs fail before installation. Agents resolving to the same physical destination, including symlink aliases, trigger one copy and one lock entry per skill.
+
+Many agents also discover skills in other agents' directories. Identical names across user/project scopes or native/shared locations may therefore be visible more than once; the agents determine their own precedence. skills-sync warns when its selected manifests declare the same skill name. It does not promise that a project skill overrides a personal skill. Choose unique names or limit the agent selection when necessary. Local copying does not upload skills to ChatGPT web or other cloud runtimes.
+
+### Custom destinations
+
+Keep using `~/.codex/skills`, or choose another path for a supported agent:
+
+```toml
+[sync]
+scope = "user"
+agents = ["codex", "claude-code"]
+
+[agents.codex]
+user_dir = "~/.codex/skills"
+project_dir = ".team/skills"
+
+[skills]
+repos = ["anthropics/skills/skills/skill-creator"]
+```
+
+`~/` expands to the current home directory. Other relative paths are relative to the manifest directory. Project destinations must remain inside that directory after symlinks and `..` have been resolved. An explicit project-scoped manifest also keeps `--target` inside its directory. A legacy manifest without `[sync]` can use an external `--target` as a user-scoped compatibility configuration. `--agent` overrides the selected agents for a run. `--target` overrides all configured destinations with one explicit directory, relative to the working directory; select a single manifest with `--local` or `--config` when both scopes exist.
+
+```sh
+skills-sync --local --agent codex --agent claude-code
+skills-sync --global --agent codex,cursor
+skills-sync --config /path/to/skills.toml --target ~/.codex/skills
+```
+
+### Existing skills collections
+
+Old manifests containing only `[skills]` remain supported. Without an agent selection, a user configuration targets `~/.agents/skills`; a project/explicit manifest retains directory detection:
+
+| Manifest directory | Destination |
+|---|---|
+| Any directory named `skills` | That directory directly, even if it is a Git repository |
+| `.agents`, `.codex`, `.claude`, `.cursor`, `.gemini`, `.copilot`, `.github`, `.opencode`, `.kiro` | Its `skills` subdirectory |
+| Project root (Git/worktree, agent instructions, common build manifest) | `.agents/skills` |
+| Standalone configuration directory | Beside the manifest |
+
+This preserves use from `~/.agents/skills`, `~/.codex/skills`, or a collection already named `skills` without creating `skills/skills` or a nested `.claude/skills`. To distribute a collection to several agents, add `[sync]` with an explicit scope and agent selection.
+
+## Sources and skill format
+
+```toml
+[skills]
+repos = [
+    "owner/single-skill-repo",                 # SKILL.md at repository root
+    "owner/collection",                        # immediate skill subdirectories
+    "anthropics/skills/skills/skill-creator",    # exact subdirectory
+    "anthropics/skills/skills/pdf",             # another pin from the same repo
+]
+```
+
+Entries use `owner/repo` or `owner/repo/path/to/skill`. Paths containing `.` or `..` segments are rejected. Duplicate entries are rejected; different pins from one repository are combined before reconciliation, so one pin does not remove another.
+
+Each distinct repository is fetched once per manifest/run and reused for all its skills and agent destinations. A pinned path must actually contain `SKILL.md`. Auto-detection recognizes a root skill or skills directly below the repository root; use explicit pins for deeper layouts. The checkout's Git tree is authoritative. If the API tree is stale or truncated, discovery is refreshed from the checkout before installation and version tracking.
+
+Installed directories use `name` from the `SKILL.md` YAML frontmatter. Required names and descriptions are validated; scripts, references, assets, hidden supporting files and executable file permissions are copied. Git internals are excluded. Bundled symlinks and special files are rejected rather than following them outside the source tree. Two sources declaring the same installed name in one manifest are a conflict.
+
+## Locking, conflicts and recovery
+
+There is one consolidated lock beside each manifest, with schema version 2 and one installation record for every **source skill + absolute target directory** pair:
+
+```toml
+schema_version = 2
+scope = "user"
+
+[[installations]]
+skill = "anthropics/skills/skills/skill-creator"
+target = "/home/alex/.claude/skills"
+directory = "skill-creator"
+sha = "upstream-git-tree-sha"
+content_hash = "sha256-of-installed-files"
+installed_at = "2026-10-25T12:00:00Z"
+updated_at = "2026-10-25T12:00:00Z"
+```
+
+The `sha` tracks the remote tree; `content_hash` covers the installed files and executable bits. An unchanged copy is skipped. Missing copies and newly selected destinations are installed independently. Successful operations update the lock atomically; a failed target does not mark its copy installed and does not discard successful targets' state. A later run retries what is missing.
+
+All selected manifests are planned before target changes begin. An unmanaged name collision, duplicate name within a manifest, or modified managed skill blocks the run. Local changes are preserved even with `--force`. To accept an upstream replacement, first move your edited copy to a backup location, then rerun sync; a missing managed copy can be reinstalled safely.
+
+Removing a source or deselecting an agent proposes removal only of copies owned by that manifest's lock, including destinations no longer selected. Deletion requires confirmation or `--force`. Declining deletion preserves both the files and their lock entries. Unmanaged skills are left alone. Updates and removals keep a temporary backup until the new lock has been saved; ordinary copy/lock-write failures restore the previous installation. An interrupted process can leave a hidden `.skills-sync-*` recovery directory; it is not automatically deleted on the next run.
+
+Schema-1 locks are imported for their original single target only. Existing legacy files must match the fetched source before a content-hash baseline can be adopted; otherwise they are preserved as an unverified conflict. A lock's user/project scope cannot be changed in place: use separate manifests and locks for those scopes. Unknown lock schemas are rejected.
+
+Do not run concurrent synchronizations against the same manifest: lock files track installed state, and do not currently provide a process mutex.
+
+## CLI reference
+
+| Flag | Behavior |
+|---|---|
+| `--init` | Create `.skills.toml` in the working directory, or at `--config` |
+| `--global --init` | Create the central config with Codex and Claude Code selected |
+| `--global` | Process only the central user config; force user scope |
+| `--local` | Process only the nearest project manifest; force project scope |
+| `--config PATH` | Process exactly this manifest; honor its explicit scope |
+| `--agent ID` | Override agent selection; repeat or comma-separate IDs |
+| `--target PATH` | Replace the destination list with one explicit directory; conflicts with `--global` |
+| `--dry-run` | Resolve sources and print the plan; change no target/config/lock files |
+| `--force` | Confirm managed removals; never overwrite local edits or unmanaged skills |
+| `--verbose` | Print manifest, lock, scope and resolved target paths |
+
+Dry-run may fetch remote sources into temporary storage to validate the real skill names and files. Exit codes: `0` for success/up to date, `2` for a dry-run with pending changes, `1` for sync/configuration conflicts or errors. CLI argument errors also use exit code `2`.
 
 ## Authentication
 
-skills-sync works unauthenticated but is subject to GitHub's 60 requests/hour rate limit. For development or large manifests, use an authenticated token for 5,000 requests/hour:
+Uses `GITHUB_TOKEN`, then `gh auth token`, then unauthenticated GitHub access. Empty manifests require no GitHub requests or checkout. Private repositories need authentication; GitHub API rate limits apply. Sync never executes bundled skill scripts.
+
+## Examples and development
+
+See [user.skills.toml](examples/user.skills.toml), [project.skills.toml](examples/project.skills.toml), and the legacy [minimal](examples/minimal.skills.toml), [monorepo](examples/monorepo.skills.toml) and [mixed](examples/mixed.skills.toml) manifests.
 
 ```sh
-export GITHUB_TOKEN=ghp_your_token_here
-```
-
-skills-sync also automatically uses the `gh` CLI token if you have [GitHub CLI](https://cli.github.com/) installed and are logged in:
-
-```sh
-gh auth login
-```
-
-The unauthenticated limit is usually sufficient for small manifests with infrequent syncs.
-
-## Examples
-
-See the [examples/](examples/) directory:
-
-- **[minimal.skills.toml](examples/minimal.skills.toml)** — Minimal manifest with a single skill. Good starting point.
-- **[monorepo.skills.toml](examples/monorepo.skills.toml)** — Demonstrates monorepo auto-detection and subdirectory pinning.
-- **[mixed.skills.toml](examples/mixed.skills.toml)** — Combines single-skill, monorepo, and subdirectory-pinned entries in one manifest.
-
-## Development
-
-```sh
-# Build
-cargo build
-
-# Run tests
 cargo test
-
-# Dry-run with the local manifest
-cargo run -- --dry-run
-
-# Sync with verbose output
-cargo run -- --verbose
-
-# Test with a specific manifest
-cargo run -- --dry-run --config examples/mixed.skills.toml
+cargo clippy --all-targets
+./scripts/test-sync.sh         # networked smoke test in a temporary project
+./scripts/test-multi-agent.sh  # networked user + project + multi-target test
 ```
 
-The automated tests include local Git install/update/remove tests for every target layout and CLI path checks. These exercise the portable filesystem layout without launching a live AI agent. For a networked end-to-end manual smoke test, run:
-
-```sh
-./scripts/test-sync.sh
-```
-
-This exercises init, dry-run, sync, and idempotent re-sync in a temporary directory with automatic cleanup.
+Automated tests cover independent copies, shared target deduplication, central/project discovery, custom paths, per-target retries, deletion, local edits, rollback after lock failures, old locks and rebasing project locks. Source tests use local Git repositories and a local API fixture; they verify multiple pins reuse one checkout. Tests verify the portable filesystem layout without launching live AI agent sessions.

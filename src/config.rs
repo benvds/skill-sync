@@ -68,7 +68,10 @@ pub fn target_dir_for_manifest(manifest: &Path) -> PathBuf {
         .or_else(|| base.file_name().and_then(|s| s.to_str()))
     {
         Some("skills") => base,
-        Some(".agents" | ".codex" | ".claude") => base.join("skills"),
+        Some(
+            ".agents" | ".codex" | ".claude" | ".cursor" | ".gemini" | ".copilot" | ".github"
+            | ".opencode" | ".kiro",
+        ) => base.join("skills"),
         _ if is_project_dir(&base) => base.join(".agents/skills"),
         // Standalone configuration directories keep skills next to their manifest/lock.
         _ => base,
@@ -111,4 +114,48 @@ pub fn global_target_dir() -> crate::error::Result<PathBuf> {
         reason: "cannot resolve home directory for --global target".to_string(),
     })?;
     Ok(home.join(".agents/skills"))
+}
+
+/// Use XDG consistently, including macOS, while discovery retains the old platform fallback.
+pub fn config_home() -> crate::error::Result<PathBuf> {
+    if let Some(path) = std::env::var_os("XDG_CONFIG_HOME").filter(|p| !p.is_empty()) {
+        let path = PathBuf::from(path);
+        if !path.is_absolute() {
+            return Err(SkillsSyncError::Config("XDG_CONFIG_HOME must be absolute".into()).into());
+        }
+        return Ok(path);
+    }
+    Ok(dirs::home_dir()
+        .ok_or_else(|| SkillsSyncError::Config("cannot resolve home directory".into()))?
+        .join(".config"))
+}
+
+pub fn central_manifest_path() -> crate::error::Result<PathBuf> {
+    Ok(config_home()?.join("skills-sync/skills.toml"))
+}
+
+pub fn find_central_manifest() -> crate::error::Result<Option<PathBuf>> {
+    let mut candidates = vec![central_manifest_path()?];
+    if let Some(platform) = dirs::config_dir() {
+        candidates.push(platform.join("skills-sync/skills.toml"));
+    }
+    let old = global_target_dir()?;
+    candidates.extend([old.join(".skills.toml"), old.join("skills.toml")]);
+    Ok(candidates.into_iter().find(|p| p.is_file()))
+}
+
+pub fn find_project_manifest(start: &Path) -> Option<PathBuf> {
+    let home = dirs::home_dir();
+    for dir in start.ancestors() {
+        for name in LOCAL_MANIFESTS {
+            let path = dir.join(name);
+            if path.is_file() {
+                return Some(path);
+            }
+        }
+        if dir.join(".git").exists() || home.as_deref() == Some(dir) {
+            break;
+        }
+    }
+    None
 }

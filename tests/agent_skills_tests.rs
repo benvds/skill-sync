@@ -271,6 +271,8 @@ fn cli_uses_config_location_and_respects_init_paths() {
         }
         let output = Command::new(env!("CARGO_BIN_EXE_skills-sync"))
             .current_dir(tmp.path())
+            .env("HOME", tmp.path())
+            .env("XDG_CONFIG_HOME", tmp.path().join("user-config"))
             .env("GITHUB_TOKEN", "test-no-network")
             .args(["--config"])
             .arg(&manifest)
@@ -286,11 +288,17 @@ fn cli_uses_config_location_and_respects_init_paths() {
         assert!(!tmp.path().join(".claude").exists());
         let automatic = Command::new(env!("CARGO_BIN_EXE_skills-sync"))
             .current_dir(&base)
+            .env("HOME", tmp.path())
+            .env("XDG_CONFIG_HOME", tmp.path().join("user-config"))
             .env("GITHUB_TOKEN", "test-no-network")
             .args(["--verbose", "--dry-run"])
             .output()
             .unwrap();
-        assert!(automatic.status.success());
+        assert!(
+            automatic.status.success(),
+            "{}",
+            String::from_utf8_lossy(&automatic.stderr)
+        );
         assert!(
             String::from_utf8_lossy(&automatic.stderr).contains(&format!(
                 "target: {}",
@@ -307,19 +315,20 @@ fn cli_global_target_override_and_dry_run() {
         Command::new(env!("CARGO_BIN_EXE_skills-sync"))
             .current_dir(tmp.path())
             .env("HOME", tmp.path())
+            .env("XDG_CONFIG_HOME", tmp.path().join(".config"))
             .env("GITHUB_TOKEN", "test-no-network")
             .args(args)
             .output()
             .unwrap()
     };
     assert!(run(&["--global", "--init"]).status.success());
-    let global = tmp.path().join(".agents/skills/.skills.toml");
+    let global = tmp.path().join(".config/skills-sync/skills.toml");
     assert!(global.is_file());
     // A local manifest must not override the global one.
     std::fs::write(tmp.path().join(".skills.toml"), "invalid toml [").unwrap();
     assert!(run(&["--global"]).status.success());
-    std::fs::rename(&global, global.with_file_name("skills.toml")).unwrap();
-    assert!(run(&["--global"]).status.success());
+    assert!(tmp.path().join(".agents/skills").is_dir());
+    assert!(tmp.path().join(".claude/skills").is_dir());
     assert!(run(&["--init", "--config", "config/skills.toml"])
         .status
         .success());

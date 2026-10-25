@@ -16,7 +16,8 @@ const INIT_TEMPLATE: &str = r#"# ===============================================
 #   skills-sync              Sync all repos listed below
 #   skills-sync --dry-run    Preview changes without applying
 #   skills-sync --verbose    Show detailed sync output
-#   skills-sync --global     Sync to ~/.agents/skills/
+#   skills-sync --global     Sync the central user configuration
+#   skills-sync --local      Sync only this project's manifest
 #   skills-sync --target ~/.codex/skills  Use an explicit skills directory
 #
 # Skills are installed next to this file in an existing skills directory.
@@ -65,6 +66,22 @@ repos = [
 ///
 /// Returns an error if the file already exists (refuses to overwrite).
 pub fn run_init(path: &Path) -> crate::error::Result<()> {
+    write_template(path, INIT_TEMPLATE)
+}
+
+pub fn run_init_global(path: &Path) -> crate::error::Result<()> {
+    let settings =
+        "[sync]\nscope = \"user\"\nagents = [\"codex\", \"claude-code\"]\nmode = \"copy\"\n\n";
+    write_template(
+        path,
+        &INIT_TEMPLATE.replace(
+            "[skills]\nrepos = [",
+            &format!("{settings}[skills]\nrepos = ["),
+        ),
+    )
+}
+
+fn write_template(path: &Path, template: &str) -> crate::error::Result<()> {
     if path.exists() {
         return Err(SkillsSyncError::ManifestAlreadyExists {
             path: path.to_owned(),
@@ -75,7 +92,7 @@ pub fn run_init(path: &Path) -> crate::error::Result<()> {
     if let Some(parent) = path.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent).map_err(SkillsSyncError::Io)?;
     }
-    std::fs::write(path, INIT_TEMPLATE).map_err(SkillsSyncError::Io)?;
+    std::fs::write(path, template).map_err(SkillsSyncError::Io)?;
 
     eprintln!("Created {}", path.display());
     Ok(())
