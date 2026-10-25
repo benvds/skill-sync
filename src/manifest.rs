@@ -105,10 +105,10 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
     let table: toml::Table = toml::from_str(content).map_err(|e| {
         let span = e
             .span()
-            .map(|s| miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1).into()));
+            .map(|s| miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1)));
         SkillSyncError::InvalidToml {
             src: miette::NamedSource::new(path.display().to_string(), content.to_string()),
-            span: span.unwrap_or_else(|| miette::SourceSpan::new(0.into(), 1_usize.into())),
+            span: span.unwrap_or_else(|| miette::SourceSpan::new(0.into(), 1_usize)),
         }
     })?;
 
@@ -127,10 +127,10 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
     let mut manifest: Manifest = toml::from_str(content).map_err(|e| {
         let span = e
             .span()
-            .map(|s| miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1).into()));
+            .map(|s| miette::SourceSpan::new(s.start.into(), (s.end - s.start).max(1)));
         SkillSyncError::InvalidToml {
             src: miette::NamedSource::new(path.display().to_string(), content.to_string()),
-            span: span.unwrap_or_else(|| miette::SourceSpan::new(0.into(), 1_usize.into())),
+            span: span.unwrap_or_else(|| miette::SourceSpan::new(0.into(), 1_usize)),
         }
     })?;
 

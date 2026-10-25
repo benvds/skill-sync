@@ -1,6 +1,4 @@
-use skill_sync::github::{
-    AuthMethod, GitHubClient, RepoInfo, TreeEntry, TreeResponse,
-};
+use skill_sync::github::{AuthMethod, GitHubClient, RepoInfo, TreeEntry, TreeResponse};
 use std::sync::Mutex;
 
 // Mutex to serialize env var tests (env vars are process-global)

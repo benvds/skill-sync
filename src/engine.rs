@@ -288,12 +288,21 @@ fn git_output(root: &Path, args: &[&str]) -> Result<Vec<u8>> {
     Ok(output.stdout)
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Action {
     Install,
     Update,
     Remove,
     Forget,
+}
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Outcome {
+    Planned,
+    Applied,
+    Skipped,
+    Failed,
 }
 #[derive(Debug)]
 pub struct Operation {
@@ -572,6 +581,30 @@ pub fn apply(
     lock_path: &Path,
     force: bool,
 ) -> Result<()> {
+    apply_with_observer(
+        plan,
+        skills,
+        targets,
+        lock,
+        lock_path,
+        force,
+        |op, outcome, _| {
+            if outcome == Outcome::Applied {
+                println!("{:?}: {} -> {}", op.action, op.skill, op.target.display());
+            }
+        },
+    )
+}
+
+pub fn apply_with_observer(
+    plan: &Plan,
+    skills: &[PreparedSkill],
+    targets: &[PathBuf],
+    lock: &mut DeploymentLock,
+    lock_path: &Path,
+    force: bool,
+    mut observe: impl FnMut(&Operation, Outcome, Option<String>),
+) -> Result<()> {
     if !plan.conflicts.is_empty() {
         return Err(failure(lock_path, plan.conflicts.join("\n")));
     }
@@ -593,11 +626,15 @@ pub fn apply(
     }
     for op in &plan.operations {
         if op.action == Action::Remove && !allow_remove {
+            observe(op, Outcome::Skipped, None);
             continue;
         }
         match apply_one(op, skills, lock, lock_path) {
-            Ok(()) => println!("{:?}: {} -> {}", op.action, op.skill, op.target.display()),
-            Err(err) => errors.push(format!("{} -> {}: {err}", op.skill, op.target.display())),
+            Ok(()) => observe(op, Outcome::Applied, None),
+            Err(err) => {
+                observe(op, Outcome::Failed, Some(err.to_string()));
+                errors.push(format!("{} -> {}: {err}", op.skill, op.target.display()));
+            }
         }
     }
     if !errors.is_empty() {

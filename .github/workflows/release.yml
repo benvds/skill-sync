@@ -40,8 +40,11 @@ jobs:
           ARCHIVE="${BINARY}-${VERSION}-${TARGET}.tar.gz"
           cp "target/${TARGET}/release/${BINARY}" "${BINARY}"
           tar -czf "${ARCHIVE}" "${BINARY}"
+          shasum -a 256 "${ARCHIVE}" > "${ARCHIVE}.sha256"
           echo "ARCHIVE=${ARCHIVE}" >> $GITHUB_ENV
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: ${{ env.ARCHIVE }}
+          files: |
+            ${{ env.ARCHIVE }}
+            ${{ env.ARCHIVE }}.sha256

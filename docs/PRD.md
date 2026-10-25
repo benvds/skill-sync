@@ -1,435 +1,158 @@
-> Historical design document. Target selection and skill directory naming have since changed; see the [README](../README.md#where-skills-are-installed) for current behavior.
+# skill-sync product requirements
 
-# Product Requirements Document: `skill-sync`
+Status: proposed product direction, replacing the original PRD. Updated: 2026-10-25.
 
-**Version:** 0.1.0
-**Author:** Ben / Lean Digital
-**Date:** 2026-02-28
-**Status:** Draft
+This document separates implemented behavior from future requirements. Version numbers below are product milestones; the current Cargo package is `0.1.0`.
 
-## Summary
+## Product decision
 
-`skill-sync` is a command-line tool that manages agentic skills (e.g. Claude Skills, Cursor rules, or similar AI coding assistant configurations) by syncing them from GitHub repositories to a local or global skills directory. It reads a declarative `.skills.toml` manifest file, resolves each listed repository, and ensures the local skills directory matches the desired state.
+Build a small tool that lets developers declare which skills their AI agents should have, inspect the installed files, and apply changes without silently overwriting local work.
 
-## Problem
+Grow in stages: reliable terminal management in v1, public-index discovery in v2, and a desktop interface built with egui in v3. Each stage uses the same installation rules and state.
 
-Managing agentic skills across projects is manual and error-prone. You clone repos, copy directories, forget to update them, and end up with stale or orphaned skills scattered around. There's no standard way to declare "these are the skills I want" and keep them in sync.
+Implementation details: [CLI and configuration reference](reference.md). Delivery sequence: [roadmap](ROADMAP.md).
 
-## Goals
+## Problem and audience
 
-- Declarative skill management via a single manifest file
-- Automatic install, update, and orphan detection
-- Support both global (`~/.claude/skills`) and local (`./.claude/skills`) targets
-- Smart GitHub repository traversal to detect single-skill repos vs. multi-skill monorepos
-- Zero-config updates: outdated skills always get pulled to latest
+A developer using several agents manages several skill directories. Personal preferences and project requirements have different lifetimes. Upstream changes, edited copies and forgotten installations make manual copying hard to audit.
 
-## Non-Goals (v1)
+The primary user is a developer who uses one or more supported agents and can edit a small configuration file. A second user is a team member setting up project skills from a committed manifest. Automation consumes plans and outcomes through JSON.
 
-- Version pinning (always syncs to latest default branch)
-- Non-GitHub sources (GitLab, Bitbucket)
-- Skill dependency resolution between skills
-- Skill validation or linting
+The user should be able to answer:
 
----
+- Which sources and agents did I choose for myself and this project?
+- Which local copies are missing or changed?
+- What will sync install, update or remove?
+- What succeeded, what failed, and what can I retry?
 
-## File Format: `.skills.toml`
+See [offline status](reference.md#offline-status) for the distinction between local health and remote freshness.
 
-### Why TOML?
+## Principles and boundaries
 
-TOML is the right fit here. It's human-readable, supports comments natively (critical for the `--init` documentation), has a clear spec, and is well-supported in Rust. JSON lacks comments. YAML is ambiguous. A plain text list can't scale to future config options like branch pinning or auth tokens.
+The manifest expresses intent. Each deployment lock records ownership and installed state. The filesystem is checked before managed files are replaced or removed.
 
-### Schema
+Independent copies are the default and the currently supported mode. Changes in one agent's directory must not modify another installation or the source. Personal and project scopes remain separate; settings are not silently merged.
 
-```toml
-# .skills.toml - Skills manifest for skill-sync
-# Docs: https://github.com/benvds/skill-sync
+An error in configuration, source preparation or conflict checks stops target changes. Applying a valid plan can succeed at some destinations and fail at others. Successful operations keep their state; failed operations preserve or restore previous files where recovery is possible. A run is not a transaction across all targets.
 
-# Each skill entry is a GitHub repository.
-# skill-sync will inspect the repo to determine if it's:
-#   1. A single skill (SKILL.md at root) → installed as-is
-#   2. A monorepo with multiple skills (subdirectories containing SKILL.md) → each extracted
+The product manages skill files. It does not execute their scripts, guarantee prompt safety, decide an agent's discovery precedence, or upload files to cloud assistants. MCP, hooks, agent definitions and a hosted marketplace are outside these milestones.
 
-[skills]
-repos = [
-  "anthropics/claude-skills",           # monorepo: extracts each subdirectory skill
-  "user/my-custom-skill",               # single skill repo
-  "org/shared-skills",                  # auto-detected based on structure
-]
+See [locking and recovery](reference.md#locking-conflicts-and-recovery) for current guarantees and limitations.
 
-# Future: per-repo overrides
-# [skills.overrides."user/my-custom-skill"]
-# branch = "develop"
-# subdirectory = "experimental"
-```
+## Version 1: reliable terminal management
 
-### File Discovery
+### Scope
 
-`skill-sync` looks for the manifest in this order:
+V1 keeps the existing product shape: edit a manifest, preview changes, sync through the terminal, and inspect local installations. Simple installation choices make the CLI accessible without requiring a development toolchain.
 
-1. `.skills.toml` in the current directory (for `--local`)
-2. `~/.config/skill-sync/skills.toml` (for `--global`)
-3. Explicit path via `--config <path>`
+| ID | Requirement | Implementation status in this change |
+|---|---|---|
+| V1-01 | Central personal manifest and nearest project manifest, with explicit scope/config selection | Existing |
+| V1-02 | Explicit agent targets, native paths and custom destinations; canonical aliases are deduplicated | Existing |
+| V1-03 | GitHub repositories, exact paths, recursive collections, exact Git refs and full SHA pins | Existing |
+| V1-04 | Independent copies and per-skill/per-target ownership and content hashes | Existing |
+| V1-05 | Preview and conflict checks before mutation; edited/unmanaged files are preserved | Existing |
+| V1-06 | Confirm bulk installs and owned removals; support unattended acceptance without bypassing edit protection | Existing |
+| V1-07 | Offline local status, with a clear statement that upstream was not checked | Implemented |
+| V1-08 | Versioned JSON for plans, outcomes, status, init and errors | Implemented |
+| V1-09 | Prevent concurrent CLI writes to the same manifest or target, including deselected targets | Implemented |
+| V1-10 | Recoverable writes and independently retryable target failures | Existing |
+| V1-11 | Binary installer with version/directory options, checksum verification and atomic replacement | Implemented; requires a new release containing checksum sidecars |
+| V1-12 | CI on supported OS families, minimum Rust, formatting, Clippy and installer regression tests | Workflow added; hosted CI must pass before release |
 
----
+V1 distribution targets are macOS ARM64 and Linux x86_64. Cargo source installation requires Rust 1.89 or newer. Additional package managers and architectures are optional after their install paths are tested.
 
-## CLI Interface
+### Acceptance criteria
 
-### Usage
+1. A user can declare one source and two agents, preview, install and rerun without rewriting unchanged copies.
+2. Personal sync does not copy personal skills into project repositories; project destinations cannot escape the project boundary.
+3. `status` launches no Git/gh processes, makes no network calls, creates no directories or files, and never changes baseline hashes.
+4. Status distinguishes unchanged, modified, missing, unverified, unmanaged and unreadable local entries. It reports unresolved sources and previously owned destinations no longer selected. It labels remote freshness as unchecked.
+5. JSON stdout contains one parseable object. Human diagnostics and prompts stay on stderr. Results distinguish planned, applied, skipped and failed operations, including partial success.
+6. JSON and text commands agree on exit codes: 0 for completion/local health; 1 for runtime failure; 2 for successful inspection with findings or declined removals. Argument errors also use 2 and are identified separately in JSON.
+7. Two CLI processes using the same home cannot mutate the same canonical manifest or target concurrently. Independent resources can run independently. Killing a holder allows a later run without deleting coordination files.
+8. Missing or incorrect release checksums and download failures preserve an installed binary. Destination paths containing spaces work. Version selection avoids querying the latest-release endpoint.
+9. CI covers filesystem behavior, scope discovery, historical source pins, partial failure, rollback, concurrency and installer failure paths. Both supported OS families pass before release.
 
-```
-skill-sync [FLAGS] [OPTIONS]
+### Explicit limits
 
-FLAGS:
-    --global          Sync skills to ~/.claude/skills
-    --local           Sync skills to ./.claude/skills (default)
-    --init            Create a sample .skills.toml with documentation
-    --dry-run         Show what would change without doing it
-    --force           Skip confirmation prompts
-    --verbose         Show detailed output
-    -h, --help        Print help
-    -V, --version     Print version
+The deployment lock is an installation ledger, not a dependency-resolution lock. Moving tags and branches are resolved on every sync. Full SHA suffixes provide source pins today. Status cannot validate changed manifest refs or remote collection membership from local state alone.
 
-OPTIONS:
-    --config <PATH>   Path to manifest file (overrides default discovery)
-```
+Local edits are detected and preserved by stopping replacement; V1 does not merge them. Sources remain GitHub-only. Copy mode, selected native targets and compatibility behavior remain supported. Read-only inspections are snapshots and may race a concurrent writer; advisory coordination applies to CLI writers using the same home, not arbitrary filesystem tools.
 
-### Flag Behavior
+Candidate follow-ups include local sources, manifest add/remove helpers, update diffs, caching and a portable source lock with frozen installation. These require separate acceptance criteria and are not silently added to the V1 release gate.
 
-`--global` and `--local` are mutually exclusive. If neither is provided, default to `--local`.
+Operational contract: [reference](reference.md). Follow-up priorities: [roadmap](ROADMAP.md#after-the-v1-baseline).
 
-`--init` creates a `.skills.toml` file in the current directory (or `~/.config/skill-sync/skills.toml` when combined with `--global`). The generated file contains commented-out documentation explaining the format, plus a few example entries.
+## Version 2: discover skills from public indexes
 
----
+### User outcome
 
-## Core Logic
+A user can search a public index, inspect a skill's source and contents, choose a scope and agents, and add that exact source selection to a manifest. Installation uses the existing preview and sync engine.
 
-### 1. Parse Manifest
+Start with [skills.sh](https://www.skills.sh/). Keep the provider boundary small so another public index can be added without changing installation semantics. The availability and terms of a supported search API must be confirmed before committing to an integration; the public website is not an API contract.
 
-Read and parse the `.skills.toml` file. Extract the list of repository references from `skills.repos`.
+### Requirements
 
-Each entry is a GitHub `owner/repo` string. Validation rules:
-- Must match pattern `^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$`
-- Duplicates are rejected with an error
+| ID | Requirement |
+|---|---|
+| V2-01 | Terminal search/browse with query, bounded results, pagination and provider/source attribution |
+| V2-02 | Detail view showing name, description, canonical repository/path, source link and any available revision information |
+| V2-03 | Explicit selection of scope, agents and optional ref before adding a source |
+| V2-04 | Manifest edits preserve existing comments and unrelated configuration; duplicate sources are handled predictably |
+| V2-05 | A preview separates manifest edits from installation changes; remote content is never installed just by browsing |
+| V2-06 | Network failures, provider rate limits, unsupported source types and stale entries have actionable outcomes |
+| V2-07 | JSON search/detail results and fixture-based provider tests; normal sync remains independent of index availability |
+| V2-08 | Bound response sizes, escape terminal control characters in untrusted metadata, and validate source coordinates through the existing resolver |
 
-### 2. Resolve Repository Structure
+Possible command names are `search`, `show` and `add`. They are proposals, not current CLI commands. A terminal browser may begin as paginated text and selection prompts; a full-screen TUI is optional.
 
-For each repository, determine whether it contains a single skill or multiple nested skills. This is the trickiest part of the tool.
+### Release gate
 
-**Detection algorithm:**
+A new user finds a skill through the first provider, inspects its canonical source, adds it to a chosen manifest and installs it through a reviewable plan. The flow works for a single-skill repository and a collection entry without adding unrelated skills. Unsupported non-GitHub results are explained rather than rewritten to a guessed source.
 
-```
-For repo in manifest:
-  1. Fetch repo root contents via GitHub API (GET /repos/{owner}/{repo}/contents)
-  2. Check if SKILL.md exists at root
-     → YES: this is a single-skill repo
-       - Skill name = repo name (or from SKILL.md front matter if present)
-       - Install entire repo contents as one skill directory
-     → NO: check for subdirectories containing SKILL.md
-       - For each top-level directory, check if it contains a SKILL.md
-       - Each matching subdirectory is a separate skill
-       - Skill name = subdirectory name
-  3. If no SKILL.md found anywhere at root or one level deep:
-     → Warn the user and skip this repo
-```
+Provider outages do not prevent syncing existing manifests. Tests use captured or authored provider fixtures and cover pagination, malformed metadata and source mapping. Popularity and index audit labels are displayed with provenance; they are not treated as a safety guarantee.
 
-**Why only one level deep?** Keeps traversal fast and predictable. Deeply nested skills structures are an anti-pattern. If someone needs deeper nesting, they should restructure their repo.
+Provider discovery: [skills.sh](https://www.skills.sh/). Planned sequence: [V2 roadmap](ROADMAP.md#v2-public-index-browser).
 
-**API efficiency:** Use the GitHub Trees API (`GET /repos/{owner}/{repo}/git/trees/{branch}?recursive=1`) instead of multiple contents calls. One API call per repo gives the full file tree.
+## Version 3: egui desktop app
 
-### 3. Determine Target Directory
+### User outcome
 
-Based on the flag:
+A user can manage personal and project skills, browse the V2 index, review changes and sync from a desktop window. The terminal workflow remains supported.
 
-| Flag | Target directory |
-|------|-----------------|
-| `--global` | `~/.claude/skills/` |
-| `--local` (default) | `./.claude/skills/` |
+### Requirements
 
-If the target directory doesn't exist, create it (including parent directories).
+| ID | Requirement |
+|---|---|
+| V3-01 | Separate egui application, with eframe or an explicitly chosen native integration |
+| V3-02 | Personal/project selection, installed-state list, scope/agent/source details and local-status findings |
+| V3-03 | Search and detail views using the V2 provider interfaces |
+| V3-04 | Reviewable installation/removal plans, explicit confirmation and progress/results per destination |
+| V3-05 | Shared Rust application services for discovery, planning, locking and application; no second implementation of file ownership rules |
+| V3-06 | Network, Git and filesystem work runs outside the UI thread; progress is delivered as events |
+| V3-07 | GUI and CLI coordinate through the same locks, manifests and deployment state |
+| V3-08 | CLI installations do not require GUI dependencies; desktop builds, packaging and update behavior are explicit |
+| V3-09 | Keyboard navigation, readable status/error text and supported-display-scale checks |
 
-### 4. Compute Diff
+### Release gate
 
-Compare the desired state (manifest) against the current state (what's installed):
+The same fixture produces the same plan and filesystem outcome through CLI and GUI services. A GUI sync and CLI sync cannot write the same resources concurrently. Users can inspect failure details and retry without losing successful targets. An index or network failure leaves the window responsive.
 
-| State | Action |
-|-------|--------|
-| **Missing skill** (in manifest, not installed) | Clone/copy to target |
-| **Outdated skill** (installed, but behind remote HEAD) | Pull latest / replace |
-| **Orphaned skill** (installed, not in manifest) | List and prompt for deletion |
-| **Up-to-date skill** (installed, matches remote HEAD) | Skip (log in verbose mode) |
+Initial desktop targets follow the supported CLI families, macOS and Linux. Windows support is a separate decision requiring installer, path, permissions and locking validation. Web/wasm deployment, background daemons and cloud accounts are outside V3.
 
-**Freshness check:** Compare the local HEAD SHA against the remote default branch HEAD SHA. Use `git ls-remote` for the remote check (no clone needed) and read `.git/HEAD` or a stored `.skill-sync-meta.json` file in each skill directory for the local state.
+The egui version and minimum Rust requirement must be selected when implementation starts; they are not fixed by this planning document. See [egui's official documentation](https://docs.rs/egui/latest/egui/) and the [V3 roadmap](ROADMAP.md#v3-egui-desktop-app).
 
-### 5. Execute Sync
+## Release evidence and remaining decisions
 
-#### Installing a Skill
+Release readiness is demonstrated by a fresh-install walkthrough, a project walkthrough, automated regression results on supported platforms, and a documented recovery example. These are release checks, not claims about adoption or measured user outcomes.
 
-For a single-skill repo:
-```
-git clone --depth 1 https://github.com/{owner}/{repo}.git {target}/{skill-name}
-```
+Before V2 implementation, decide the supported provider access method and caching terms. Before V3 implementation, decide desktop packaging and extract shared application services from terminal-specific prompting/output. Frozen locks and general Git transports remain separately scoped follow-ups; no milestone implies they already exist.
 
-For a monorepo with nested skills, use sparse checkout:
-```
-git clone --depth 1 --filter=blob:none --sparse https://github.com/{owner}/{repo}.git /tmp/skill-sync-{repo}
-cd /tmp/skill-sync-{repo}
-git sparse-checkout set {subdirectory}
-cp -r {subdirectory} {target}/{skill-name}
-```
+## Sources
 
-After install, write metadata:
-```json
-// {target}/{skill-name}/.skill-sync-meta.json
-{
-  "source": "owner/repo",
-  "subdirectory": null,
-  "sha": "abc123...",
-  "installed_at": "2026-02-28T12:00:00Z",
-  "updated_at": "2026-02-28T12:00:00Z"
-}
-```
-
-#### Updating a Skill
-
-For single-skill repos that were cloned directly:
-```
-cd {target}/{skill-name} && git pull --ff-only
-```
-
-For extracted monorepo skills: re-clone the monorepo to temp, copy the updated subdirectory over the existing one, update metadata.
-
-#### Removing Orphaned Skills
-
-List orphaned skills with their source info (if metadata exists) and prompt:
-
-```
-The following skills are installed but not in your manifest:
-
-  • old-skill (was from: user/deprecated-repo)
-  • experimental-thing (unknown source)
-
-Remove these skills? [y/N/select]
-```
-
-With `--force`, skip the prompt and remove them. With `--dry-run`, just list them.
-
----
-
-## The `--init` Output
-
-Running `skill-sync --init` creates:
-
-```toml
-# ============================================================================
-# .skills.toml - Skills manifest for skill-sync
-# ============================================================================
-#
-# This file declares which agentic skills to sync to your skills directory.
-# Run `skill-sync` to install and update all listed skills.
-#
-# USAGE:
-#   skill-sync --local      Sync to ./.claude/skills (default)
-#   skill-sync --global     Sync to ~/.claude/skills
-#   skill-sync --dry-run    Preview changes without applying
-#
-# REPOSITORY FORMAT:
-#   Each entry is a GitHub "owner/repo" string.
-#   skill-sync auto-detects the repo structure:
-#
-#   - If the repo has a SKILL.md at root → installed as a single skill
-#   - If subdirectories have SKILL.md files → each is extracted as a skill
-#   - Repos without any SKILL.md are skipped with a warning
-#
-# EXAMPLES:
-#   "anthropics/claude-skills"    # monorepo with multiple skills
-#   "yourname/my-custom-skill"    # single skill repo
-#
-# ============================================================================
-
-[skills]
-repos = [
-  # Add your skill repositories here:
-  # "owner/repo-name",
-]
-```
-
----
-
-## Metadata and State Tracking
-
-Each installed skill gets a `.skill-sync-meta.json` file. This is how `skill-sync` tracks what's installed, where it came from, and whether it's current.
-
-The metadata file is small, doesn't interfere with the skill itself, and makes orphan detection and update checks possible without hitting the GitHub API for every installed skill.
-
----
-
-## Error Handling
-
-| Scenario | Behavior |
-|----------|----------|
-| No manifest file found | Error with hint to run `--init` |
-| Invalid TOML syntax | Error with line number and description |
-| Repository doesn't exist or is inaccessible | Warn and skip, continue with other repos |
-| GitHub API rate limit hit | Error with retry suggestion, show remaining quota |
-| No SKILL.md found in repo | Warn and skip |
-| Network failure mid-sync | Partial sync is fine; re-running resolves it |
-| Target directory not writable | Error with permission fix suggestion |
-| Conflicting flags (`--global` + `--local`) | Error immediately |
-
----
-
-## Implementation Language: Rust
-
-### Why not a shell script?
-
-The initial thought was "bash if simple enough." It's not. Here's what tips it into Rust territory:
-
-- **TOML parsing.** No native TOML parser in bash. You'd need `python -c` or `dasel` or `yq`, adding fragile dependencies.
-- **GitHub API interaction.** Parsing JSON tree responses, handling pagination, rate limiting, error codes. `curl` + `jq` works but gets brittle fast.
-- **State management.** Reading/writing JSON metadata files per skill, comparing SHAs.
-- **Interactive prompts.** Colored output, selection menus for orphan deletion.
-- **Cross-platform.** Bash scripts behave differently on macOS vs Linux (GNU vs BSD coreutils).
-
-Rust gives you a single binary with no runtime dependencies, proper error handling, and the `toml`, `serde`, `reqwest`, and `clap` crates handle the heavy lifting.
-
-### Key Dependencies
-
-| Crate | Purpose |
-|-------|---------|
-| `clap` | CLI argument parsing with derive macros |
-| `toml` + `serde` | Manifest parsing and metadata serialization |
-| `reqwest` | GitHub API calls (async with tokio) |
-| `dialoguer` | Interactive prompts (orphan deletion confirmation) |
-| `indicatif` | Progress bars for clone/update operations |
-| `anyhow` | Error handling with context |
-| `dirs` | Cross-platform home directory resolution |
-
-### Project Structure
-
-```
-skill-sync/
-├── Cargo.toml
-├── README.md
-├── LICENSE
-├── src/
-│   ├── main.rs              # Entry point, CLI setup
-│   ├── cli.rs               # Clap argument definitions
-│   ├── config.rs            # Manifest parsing and discovery
-│   ├── github.rs            # GitHub API client, repo structure detection
-│   ├── resolver.rs          # Diff computation (missing/outdated/orphaned)
-│   ├── sync.rs              # Install, update, remove operations
-│   ├── metadata.rs          # .skill-sync-meta.json read/write
-│   └── init.rs              # --init template generation
-└── tests/
-    ├── config_test.rs
-    ├── resolver_test.rs
-    └── fixtures/
-        └── sample_skills.toml
-```
-
----
-
-## Output Examples
-
-### Normal Sync
-
-```
-$ skill-sync --local
-
-Reading .skills.toml...
-Resolving 3 repositories...
-
-  ✓ anthropics/claude-skills (monorepo: 5 skills detected)
-  ✓ user/my-custom-skill (single skill)
-  ✗ org/broken-repo (not found, skipping)
-
-Syncing to ./.claude/skills/
-
-  ↓ Installing: docx (from anthropics/claude-skills)
-  ↓ Installing: pdf (from anthropics/claude-skills)
-  ↑ Updating:  xlsx (from anthropics/claude-skills) [3 commits behind]
-  ✓ Up to date: my-custom-skill
-  ↓ Installing: pptx (from anthropics/claude-skills)
-
-Orphaned skills found:
-  • old-deprecated-skill (was from: someone/old-repo)
-
-Remove orphaned skills? [y/N]: y
-  ✗ Removed: old-deprecated-skill
-
-Done. 4 installed, 1 updated, 1 removed, 1 skipped.
-```
-
-### Dry Run
-
-```
-$ skill-sync --dry-run
-
-Would sync to ./.claude/skills/:
-  [install]  docx (from anthropics/claude-skills)
-  [install]  pdf (from anthropics/claude-skills)
-  [update]   xlsx (from anthropics/claude-skills)
-  [skip]     my-custom-skill (up to date)
-  [remove?]  old-deprecated-skill (orphaned)
-
-No changes made (dry run).
-```
-
----
-
-## Distribution
-
-### Homebrew
-
-```ruby
-class SkillSync < Formula
-  desc "Sync agentic skills from GitHub repositories"
-  homepage "https://github.com/benvds/skill-sync"
-  url "https://github.com/benvds/skill-sync/releases/download/v0.1.0/skill-sync-v0.1.0.tar.gz"
-  sha256 "..."
-
-  def install
-    bin.install "skill-sync"
-  end
-end
-```
-
-### Cargo
-
-```
-cargo install skill-sync
-```
-
-### Pre-built Binaries
-
-GitHub Releases with binaries for:
-- `x86_64-unknown-linux-gnu`
-- `x86_64-apple-darwin`
-- `aarch64-apple-darwin`
-
----
-
-## Future Considerations (v2+)
-
-These are out of scope for v1 but worth designing around:
-
-- **Branch/tag pinning:** `"owner/repo@v1.2.0"` or `"owner/repo#develop"` syntax in the manifest
-- **Private repo auth:** GitHub token configuration for private repos
-- **GitLab/Bitbucket support:** Abstract the git hosting provider
-- **Skill validation:** Lint SKILL.md files for required fields
-- **Lock file:** `.skills-lock.toml` to pin exact SHAs for reproducible setups
-- **Skill templates:** `skill-sync new <name>` to scaffold a new skill repo
-- **Watch mode:** `skill-sync --watch` to auto-sync on manifest changes
-- **Workspace support:** Multiple `.skills.toml` files in a monorepo, each syncing to their own target
-
----
-
-## Open Questions
-
-1. **Should `--local` be truly local to CWD or follow git root?** Finding the nearest `.git` parent would be more intuitive for monorepo projects, but adds complexity.
-
-2. **Git clone vs. GitHub API download?** Cloning preserves `.git` for easy updates but uses more disk. Downloading tarballs is lighter but makes updates harder. Current design uses shallow clones as a middle ground.
-
-3. **How to handle skills with the same name from different repos?** Prefix with repo name (`anthropics-docx` vs `myorg-docx`)? Or error on collision?
-
-4. **Should metadata file be `.skill-sync-meta.json` or store everything in one central file?** Per-skill metadata is simpler to manage but adds a file to each skill directory.
+- [Current behavioral reference](reference.md): configuration, locking, status, JSON and recovery contracts.
+- [Roadmap](ROADMAP.md): milestones and dependencies.
+- [Agent Skills specification](https://agentskills.io/specification): the skill format this tool installs.
+- [skills.sh](https://www.skills.sh/): the first proposed public discovery index.
+- [egui documentation](https://docs.rs/egui/latest/egui/): the requested desktop UI technology.

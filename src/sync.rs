@@ -171,7 +171,7 @@ pub fn execute_install(
     lock_file: &mut LockFile,
 ) -> crate::error::Result<()> {
     let dir_name = skill_dir_name(repo, subdirectory);
-    let tmp_name = format!(".skill-sync-tmp-{}-{}", std::process::id(), &dir_name);
+    let tmp_name = format!(".skill-sync-tmp-{}-{}", std::process::id(), dir_name);
     let tmp_path = target_dir.join(&tmp_name);
 
     std::fs::create_dir_all(target_dir).map_err(SkillSyncError::Io)?;
@@ -437,6 +437,8 @@ fn prompt_orphan_removal(orphans: &[OrphanSkill], force: bool) -> bool {
 /// installs show target SHA, updates show old..new SHA comparison, skips show current SHA.
 ///
 /// Returns `Err(SyncFailed)` if any skill operations failed; Ok(()) otherwise.
+// Preserve the legacy single-target API while the CLI uses engine::apply.
+#[allow(clippy::too_many_arguments)]
 pub fn execute_sync_plan(
     actions: &[crate::resolver::SyncAction],
     target_dir: &Path,
