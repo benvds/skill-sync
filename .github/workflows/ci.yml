@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -35,6 +37,8 @@ jobs:
       - run: cargo test --locked
       - run: sh -n install.sh
       - run: python3 -m unittest discover -s tests -p 'test_install.py' -v
+        env:
+          SKILL_SYNC_TEST_BINARY: ${{ github.workspace }}/target/debug/skill-sync
 
   lint:
     name: Format and Clippy

@@ -6,10 +6,19 @@ use std::collections::BTreeSet;
 use std::path::{Component, Path, PathBuf};
 
 pub fn validate_agent(agent: &str) -> Result<()> {
+    if let Some(name) = agent.strip_prefix("custom:") {
+        if !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || "_-".contains(c))
+        {
+            return Ok(());
+        }
+    }
     match agent {
         "codex" | "claude-code" | "cursor" | "gemini-cli" | "copilot" |
-        "github-copilot" | "opencode" | "goose" | "kiro" | "universal" => Ok(()),
-        _ => Err(SkillSyncError::Config(format!("unknown agent `{agent}`; choose codex, claude-code, cursor, gemini-cli, copilot, opencode, goose, kiro or universal")).into()),
+        "github-copilot" | "opencode" | "goose" | "kiro" | "universal" | "custom" => Ok(()),
+        _ => Err(SkillSyncError::Config(format!("unknown agent `{agent}`; choose codex, claude-code, cursor, gemini-cli, copilot, opencode, goose, kiro, universal or custom")).into()),
     }
 }
 
@@ -113,6 +122,7 @@ pub fn target_directories(
                 "copilot" | "github-copilot" => (home.join(".copilot/skills"), ".github/skills"),
                 "opencode" => (config_home.join("opencode/skills"), ".opencode/skills"),
                 "kiro" => (home.join(".kiro/skills"), ".kiro/skills"),
+                name if name == "custom" || name.starts_with("custom:") => return Err(SkillSyncError::Config("custom agent requires its [agents] user_dir or project_dir for the selected scope".into()).into()),
                 _ => unreachable!(),
             };
             absolute_path(

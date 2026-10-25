@@ -15,8 +15,8 @@ Goal: a developer can install skill-sync, declare personal/project skills, inspe
 | 1A. Declarative installation | Scopes, agent destinations, copies, recursive GitHub collections, exact refs, ownership and recovery | Existing baseline |
 | 1B. Inspection and automation | Offline `status`/`doctor`, JSON plans/results/errors, accurate partial outcomes | Implemented in this change |
 | 1C. Writer coordination | Manifest and current/previous target locks; canonical paths; automatic release after crash | Implemented in this change |
-| 1D. Distribution and checks | Version/directory installer options, checksum sidecars, atomic replacement, PR CI, updated docs | Implemented; hosted CI and a new release still required |
-| 1E. V1 release validation | Run supported-platform CI, publish checksummed assets, test the published installer and documented onboarding | Release gate; not performed by this change |
+| 1D. Distribution and checks | Version/directory installer options, checksum sidecars, atomic replacement, PR CI, updated docs | Implemented; release gated on reusable CI and packaged onboarding smoke checks |
+| 1E. V1 release validation | Run supported-platform CI, publish checksummed assets, test the published installer and documented onboarding | Release checks automated; publishing and public-download verification remain separate |
 
 Keep V1 close to the present scope. A binary installer and Cargo are enough initial installation routes. Homebrew, more architectures and shell completions are optional improvements once supported and tested.
 
@@ -26,18 +26,18 @@ Further reading: [V1 requirements](PRD.md#version-1-reliable-terminal-management
 
 ## After the V1 baseline
 
-These are candidates, not all prerequisites for V2. Select them based on actual usage. Start with visibility and simple sources before adding a resolver or patch system.
+All six follow-ups below are now implemented. They extend terminal management without adding V2 index discovery.
 
-| Order | Candidate | User value | Scope to settle first |
+| Order | Delivered feature | User value | Implemented contract |
 |---|---|---|---|
-| 1 | Local directory sources | Develop and share private skills without pushing every edit | Relative paths, ownership, content hashes and missing sources |
-| 2 | Comment-preserving manifest add/remove helpers | Change configuration from the terminal; prepare for V2 selection | TOML round-tripping and source identity |
-| 3 | File diff before replacement | Understand upstream and local changes | Where to retain comparison baselines and how to display binary files |
-| 4 | Persistent repository cache | Reduce repeated downloads and make remote previews faster | Commit identity, invalidation, limits and corrupted-cache recovery |
-| 5 | Portable source lock and frozen installation | Restore reviewed source content in teammates' checkouts and CI | Separate dependency resolution from machine-specific deployment state; explicit update command |
-| 6 | More Git transports and targets | Use internal repositories and additional tools | Credential handling, source allowlist and platform test coverage |
+| 1 | Local directory sources | Develop and share private skills without pushing every edit | `local:` paths relative to the manifest; staged copies, hashes and missing-source errors |
+| 2 | Comment-preserving manifest add/remove helpers | Change configuration from the terminal; prepare for V2 selection | `add`/`remove`, idempotent selections, comment-preserving TOML and preview |
+| 3 | File diff before replacement | Understand upstream and local changes | `--diff`, retained content baselines, separate upstream/local changes and bounded binary summaries |
+| 4 | Persistent repository cache | Reduce repeated downloads and make remote previews faster | Immutable commit objects, live-ref refresh, integrity repair, LRU retention and cache writer coordination |
+| 5 | Portable source lock and frozen installation | Restore reviewed source content in teammates' checkouts and CI | `lock`, `update` and `--frozen`; portable commit/content lock separate from the deployment ledger |
+| 6 | More Git transports and targets | Use internal repositories and additional tools | HTTPS/SSH allowlist, Git credential helpers/SSH agent and named custom agent paths |
 
-Full SHA suffixes remain the current source-pinning option. Local edit protection remains conflict detection; automatic patch rebasing is a separate decision.
+Full SHA suffixes and portable source locks provide source pins. Local edit protection remains conflict detection; automatic patch rebasing is a separate decision.
 
 Further reading: [current source behavior](reference.md#sources-and-skill-format), [current state locking](reference.md#locking-conflicts-and-recovery).
 

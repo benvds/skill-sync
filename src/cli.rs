@@ -39,6 +39,18 @@ pub struct Cli {
     #[arg(long = "agent", global = true, alias = "agents", value_delimiter = ',')]
     pub agents: Vec<String>,
 
+    /// Require an unchanged portable source lock; cached commits work offline
+    #[arg(long, global = true)]
+    pub frozen: bool,
+
+    /// Include file differences against the installed baseline; implies preview
+    #[arg(long, global = true)]
+    pub diff: bool,
+
+    /// Maximum persistent repository cache size in MiB (0 disables retention)
+    #[arg(long, global = true, default_value_t = 512)]
+    pub cache_limit_mib: u32,
+
     /// Show planned changes without executing (exit 2 if changes pending, 0 if up-to-date)
     #[arg(long, global = true)]
     pub dry_run: bool,
@@ -57,4 +69,12 @@ pub enum Command {
     /// Inspect local installations without network access or filesystem changes
     #[command(alias = "doctor")]
     Status,
+    /// Add a source without installing it; --dry-run previews the manifest edit
+    Add { source: String },
+    /// Remove an exact source selection; installed copies are reconciled by sync
+    Remove { source: String },
+    /// Create a portable source lock without changing installed copies
+    Lock,
+    /// Explicitly refresh the portable source lock to current source revisions
+    Update,
 }

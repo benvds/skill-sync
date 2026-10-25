@@ -3,6 +3,8 @@ import hashlib
 import io
 import json
 import os
+import platform
+import shutil
 from pathlib import Path
 import subprocess
 import tarfile
@@ -64,6 +66,64 @@ else: sys.stdout.buffer.write(fixture.read_bytes())
         self.assertEqual((self.install_dir / "skill-sync").read_text(), "old binary")
         self.assertFalse(list(self.root.glob("skill-sync.*")))
         self.assertFalse(list(self.install_dir.glob(".skill-sync.*")))
+
+    @unittest.skipUnless(os.environ.get("SKILL_SYNC_TEST_BINARY") or os.environ.get("SKILL_SYNC_TEST_ARCHIVE"),
+                         "set SKILL_SYNC_TEST_BINARY or SKILL_SYNC_TEST_ARCHIVE for real-binary validation")
+    def test_packaged_binary_onboarding(self):
+        # Exercise the exact production archive when supplied by the release job.
+        supplied = os.environ.get("SKILL_SYNC_TEST_ARCHIVE")
+        if supplied:
+            package = Path(supplied).resolve()
+            self.archive = package.name
+            shutil.copyfile(package, self.fixtures / self.archive)
+            shutil.copyfile(str(package) + ".sha256", self.fixtures / (self.archive + ".sha256"))
+            version = self.archive.removeprefix("skill-sync-").split("-", 1)[0]
+        else:
+            binary = Path(os.environ["SKILL_SYNC_TEST_BINARY"]).resolve()
+            version = subprocess.check_output([str(binary), "--version"], text=True).split()[1]
+            version = "v" + version
+            target = "aarch64-apple-darwin" if platform.system() == "Darwin" else "x86_64-unknown-linux-musl"
+            self.archive = f"skill-sync-{version}-{target}.tar.gz"
+            with tarfile.open(self.fixtures / self.archive, "w:gz") as archive:
+                archive.add(binary, arcname="skill-sync")
+            digest = hashlib.sha256((self.fixtures / self.archive).read_bytes()).hexdigest()
+            (self.fixtures / (self.archive + ".sha256")).write_text(f"{digest}  {self.archive}\n")
+        os_name, arch = ("Darwin", "arm64") if "apple-darwin" in self.archive else ("Linux", "x86_64")
+        self.executable("uname", f'#!/bin/sh\ncase "$1" in -s) echo {os_name};; -m) echo {arch};; esac\n')
+        result = self.run_installer("--version", version)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        binary = self.install_dir / "skill-sync"
+        self.assertEqual(subprocess.check_output([str(binary), "--version"], text=True).strip(),
+                         "skill-sync " + version.removeprefix("v"))
+        # All writes remain in an isolated home and project, including recovery copies.
+        project = self.root / "project"
+        project.mkdir()
+        source = project / "private"
+        source.mkdir()
+        (source / "SKILL.md").write_text("---\nname: fixture\ndescription: Release check\n---\nOriginal\n")
+        runtime = dict(self.env, HOME=str(self.root / "home"), XDG_CONFIG_HOME=str(self.root / "xdg"))
+        def run(*args, code=0):
+            output = subprocess.run([str(binary), *args, "--json"], cwd=project, env=runtime,
+                                    capture_output=True, text=True)
+            self.assertEqual(output.returncode, code, output.stdout + output.stderr)
+            return json.loads(output.stdout)
+        run("--global", "--init")
+        run("--local", "--init")
+        run("add", "local:private", "--local", "--agent", "codex,claude-code")
+        run("--local", "--dry-run", code=2)
+        run("lock", "--local")
+        run("--local", "--frozen")
+        run("--local", "--frozen")
+        run("status", "--local")
+        installed = project / ".agents/skills/fixture/SKILL.md"
+        installed.write_text("Local edit")
+        run("status", "--local", code=2)
+        run("--local", "--force", code=1)
+        backup = project / "saved-edit"
+        installed.parent.rename(backup)
+        run("--local", "--frozen")
+        self.assertEqual((backup / "SKILL.md").read_text(), "Local edit")
+        self.assertIn("Original", installed.read_text())
 
     def test_version_and_directory_options_install_verified_executable(self):
         destination = self.root / "custom directory"

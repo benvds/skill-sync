@@ -106,9 +106,24 @@ Local status shows missing, modified, unverified and unmanaged copies, plus sour
 - **Remove:** reconcile sources or destinations removed from the manifest, after confirmation. Unmanaged files remain outside its ownership.
 - **Recover:** retain successful targets and restore previous files after ordinary copy or state-write failures. Rerun to retry missing work.
 
-The `.skills.lock` file records installed state; it does not freeze moving refs. Installing 10 or more new distinct skills requires confirmation. Sync plans all selected manifests before changing targets, and prevents concurrent CLI writers using the same manifest or target. Coordination files are kept under `~/.cache/skill-sync/run-locks`; OS locks release automatically after exit or a crash.
+The `.skills.lock` file records installed state. Use `skill-sync lock --local` and commit `.skills.sources.lock` for `--frozen` installation. Installing 10 or more new distinct skills requires confirmation. Sync plans all selected manifests before changing targets, and prevents concurrent CLI writers using the same manifest or target. Coordination files are kept under `~/.cache/skill-sync/run-locks`; OS locks release automatically after exit or a crash.
 
 Supported agent destinations include Codex, Claude Code, Cursor, Gemini CLI, Copilot, OpenCode, Goose and Kiro. You can override native paths. Sync copies files without executing bundled scripts; the agent determines how installed skills are used.
+
+## Manage sources from the terminal
+
+```sh
+skill-sync add 'local:../private-skills' --local --dry-run
+skill-sync add 'local:../private-skills' --local --agent codex,claude-code
+skill-sync add 'git+ssh://git@git.example.com/team/skills.git//review#v1' --local
+skill-sync --local --diff
+skill-sync lock --local
+skill-sync --local --frozen
+skill-sync update --local --dry-run
+skill-sync remove 'local:../private-skills' --local
+```
+
+Add/remove preserve manifest comments and leave installation to the usual preview/sync flow. Local paths resolve relative to the manifest. Git sources support HTTPS and SSH with your Git credentials. A bounded repository cache speeds repeated previews and lets frozen installations reuse cached commits offline. `--diff` previews upstream and local file changes against retained baselines. Additional tools can use named custom agent destinations. See the [source-management reference](docs/reference.md#pre-v2-source-management) for syntax, locks, cache limits and examples.
 
 ## Start with a preview
 
