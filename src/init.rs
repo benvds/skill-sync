@@ -15,6 +15,8 @@ const INIT_TEMPLATE: &str = r#"# ===============================================
 #
 #   skill-sync              Sync all repos listed below
 #   skill-sync --dry-run    Preview changes without applying
+#   skill-sync status       Inspect local files offline
+#   skill-sync --dry-run --json  Print a machine-readable plan
 #   skill-sync --verbose    Show detailed sync output
 #   skill-sync --global     Sync the central user configuration
 #   skill-sync --local      Sync only this project's manifest
@@ -35,7 +37,8 @@ const INIT_TEMPLATE: &str = r#"# ===============================================
 #
 #   Single-skill repos have a SKILL.md at the repository root.
 #   Monorepos contain subdirectories, each with their own SKILL.md.
-#   skill-sync detects the layout automatically.
+#   skill-sync detects the layout automatically. Collections are searched recursively.
+#   Append @tag, @branch or @commit to select a Git revision.
 #
 #   For monorepo skills, specify the subdirectory path:
 #

@@ -1,6 +1,4 @@
-use skill_sync::metadata::{
-    read_lock_file, write_lock_file_atomic, LockFile, SkillMeta,
-};
+use skill_sync::metadata::{read_lock_file, write_lock_file_atomic, LockFile, SkillMeta};
 use tempfile::TempDir;
 
 // --- LockFile tests ---
@@ -35,7 +33,8 @@ fn test_lock_file_roundtrip_preserves_all_fields() {
     let meta1 = SkillMeta::new("owner/repo", "abc123");
     let meta2 = SkillMeta::new("other/monorepo", "def456").with_subdirectory("skill-a");
     lf.skills.insert("owner/repo".to_string(), meta1.clone());
-    lf.skills.insert("other/monorepo/skill-a".to_string(), meta2.clone());
+    lf.skills
+        .insert("other/monorepo/skill-a".to_string(), meta2.clone());
 
     write_lock_file_atomic(&path, &lf).unwrap();
     let read_back = read_lock_file(&path).unwrap();
@@ -77,7 +76,10 @@ fn test_read_lock_file_nonexistent_returns_empty() {
 #[test]
 fn test_lock_file_insert_and_remove() {
     let mut lf = LockFile::new();
-    lf.skills.insert("owner/repo".to_string(), SkillMeta::new("owner/repo", "sha1"));
+    lf.skills.insert(
+        "owner/repo".to_string(),
+        SkillMeta::new("owner/repo", "sha1"),
+    );
     assert_eq!(lf.skills.len(), 1);
     lf.skills.remove("owner/repo");
     assert!(lf.skills.is_empty());
@@ -86,7 +88,10 @@ fn test_lock_file_insert_and_remove() {
 #[test]
 fn test_lock_file_skill_meta_omits_subdirectory_when_none() {
     let mut lf = LockFile::new();
-    lf.skills.insert("owner/repo".to_string(), SkillMeta::new("owner/repo", "sha1"));
+    lf.skills.insert(
+        "owner/repo".to_string(),
+        SkillMeta::new("owner/repo", "sha1"),
+    );
     let toml_str = toml::to_string_pretty(&lf).unwrap();
     // subdirectory should not appear for entries with None subdirectory
     // The skills section may have "subdirectory" but it's for entries that have it set
@@ -126,7 +131,10 @@ fn test_with_subdirectory() {
 #[test]
 fn test_skill_meta_serialization_contains_required_fields() {
     let mut lf = LockFile::new();
-    lf.skills.insert("owner/repo".to_string(), SkillMeta::new("owner/repo", "abc123"));
+    lf.skills.insert(
+        "owner/repo".to_string(),
+        SkillMeta::new("owner/repo", "abc123"),
+    );
     let toml_str = toml::to_string_pretty(&lf).unwrap();
     assert!(toml_str.contains("source = \"owner/repo\""));
     assert!(toml_str.contains("sha = \"abc123\""));
@@ -154,7 +162,10 @@ fn test_timestamps_are_iso_8601() {
     let meta = SkillMeta::new("owner/repo", "abc123");
     let toml_str = toml::to_string_pretty(&meta).unwrap();
     // ISO 8601 timestamps contain T separator
-    assert!(toml_str.contains("T"), "Timestamp should contain T separator");
+    assert!(
+        toml_str.contains("T"),
+        "Timestamp should contain T separator"
+    );
 }
 
 #[test]
@@ -181,11 +192,17 @@ fn test_write_overwrites_existing_file() {
     let path = dir.path().join(".skills.lock");
 
     let mut lf1 = LockFile::new();
-    lf1.skills.insert("owner/repo".to_string(), SkillMeta::new("owner/repo", "sha1"));
+    lf1.skills.insert(
+        "owner/repo".to_string(),
+        SkillMeta::new("owner/repo", "sha1"),
+    );
     write_lock_file_atomic(&path, &lf1).unwrap();
 
     let mut lf2 = LockFile::new();
-    lf2.skills.insert("owner/repo".to_string(), SkillMeta::new("owner/repo", "sha2"));
+    lf2.skills.insert(
+        "owner/repo".to_string(),
+        SkillMeta::new("owner/repo", "sha2"),
+    );
     write_lock_file_atomic(&path, &lf2).unwrap();
 
     let read_back = read_lock_file(&path).unwrap();

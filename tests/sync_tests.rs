@@ -25,7 +25,10 @@ fn skill_dir_name_special_chars() {
 #[test]
 fn skill_dir_name_multi_segment_subdir() {
     assert_eq!(
-        skill_dir_name("anthropics/skills", &Some("skills/skill-creator".to_string())),
+        skill_dir_name(
+            "anthropics/skills",
+            &Some("skills/skill-creator".to_string())
+        ),
         "anthropics--skills--skills--skill-creator"
     );
 }
@@ -81,7 +84,10 @@ fn execute_remove_nonexistent_returns_error() {
     let mut lock_file = LockFile::new();
     skill_sync::metadata::write_lock_file_atomic(&lock_path, &lock_file).unwrap();
     let result = execute_remove(path, &lock_path, &mut lock_file, "owner/repo");
-    assert!(result.is_err(), "execute_remove on nonexistent path should return error");
+    assert!(
+        result.is_err(),
+        "execute_remove on nonexistent path should return error"
+    );
 }
 
 #[test]
@@ -112,8 +118,14 @@ fn execute_remove_with_lock_file() {
 
     assert!(!skill_dir.exists(), "skill directory should be removed");
     // Entry should be removed from in-memory lock_file
-    assert!(!lock_file.skills.contains_key("owner/repo"), "entry should be removed from lock_file");
+    assert!(
+        !lock_file.skills.contains_key("owner/repo"),
+        "entry should be removed from lock_file"
+    );
     // The lock file on disk should also be updated
     let disk_lf = skill_sync::metadata::read_lock_file(&lock_path).unwrap();
-    assert!(!disk_lf.skills.contains_key("owner/repo"), "entry should be removed from disk lock file");
+    assert!(
+        !disk_lf.skills.contains_key("owner/repo"),
+        "entry should be removed from disk lock file"
+    );
 }

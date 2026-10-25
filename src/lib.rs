@@ -8,5 +8,8 @@ pub mod github;
 pub mod init;
 pub mod manifest;
 pub mod metadata;
+pub mod output;
 pub mod resolver;
+pub mod run_lock;
+pub mod status;
 pub mod sync;

@@ -2,3 +2,5 @@
 .claude/skills/
 .agents/skills/
 .codex/skills/
+
+__pycache__/

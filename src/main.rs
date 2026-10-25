@@ -10,6 +10,9 @@ use skill_sync::{
     init,
     manifest::{self, Scope},
     metadata::lock_path_for_manifest,
+    output::{ManifestReport, Report},
+    run_lock::RunLocks,
+    status,
 };
 use std::collections::BTreeMap;
 
@@ -22,37 +25,90 @@ fn main() {
                 .build(),
         )
     }));
-    match run(Cli::parse()) {
-        Ok(pending) => {
-            if pending {
+    let cli = match Cli::try_parse() {
+        Ok(cli) => cli,
+        Err(error) => {
+            if error.use_stderr() && std::env::args_os().any(|arg| arg == "--json") {
+                let mut report = Report::new("arguments", false);
+                report.success = false;
+                report.exit_code = 2;
+                report.errors.push(error.to_string());
+                emit_json(&report);
                 std::process::exit(2);
             }
+            error.exit();
         }
-        Err(err) => {
-            eprintln!("{err:?}");
-            std::process::exit(1);
+    };
+    let mut report = Report::new(
+        if cli.command.is_some() {
+            "status"
+        } else if cli.init {
+            "init"
+        } else {
+            "sync"
+        },
+        cli.dry_run,
+    );
+    match run(&cli, &mut report) {
+        Ok(pending) => {
+            report.pending_changes = pending;
+            report.exit_code = if pending { 2 } else { 0 };
         }
+        Err(error) => {
+            report.success = false;
+            report.exit_code = 1;
+            report.errors.push(format!("{error:#}"));
+            if !cli.json {
+                eprintln!("{error:?}");
+            }
+        }
+    }
+    if cli.json {
+        emit_json(&report);
+    }
+    std::process::exit(report.exit_code);
+}
+
+fn emit_json(report: &Report) {
+    use std::io::Write;
+    let mut stdout = std::io::stdout().lock();
+    if let Err(error) = serde_json::to_writer_pretty(&mut stdout, report)
+        .map_err(std::io::Error::other)
+        .and_then(|_| writeln!(stdout))
+    {
+        eprintln!("cannot write JSON result: {error}");
+        std::process::exit(1);
     }
 }
 
-fn run(cli: Cli) -> Result<bool> {
+fn run(cli: &Cli, report: &mut Report) -> Result<bool> {
+    let local_status = cli.command.is_some();
+    if local_status && (cli.init || cli.dry_run || cli.force) {
+        return Err(SkillSyncError::Config(
+            "status cannot be combined with --init, --dry-run or --force".into(),
+        )
+        .into());
+    }
     let cwd = std::env::current_dir().map_err(SkillSyncError::Io)?;
     let home = dirs::home_dir()
         .ok_or_else(|| SkillSyncError::Config("cannot resolve home directory".into()))?;
     for agent in &cli.agents {
         agents::validate_agent(agent)?;
     }
+    let mut run_locks = RunLocks::new(&home);
     if cli.init {
         let path = cli.config.clone().unwrap_or(if cli.global {
             config::central_manifest_path()?
         } else {
             cwd.join(".skills.toml")
         });
+        run_locks.acquire("manifest", &lock_path_for_manifest(&path))?;
         if cli.global {
             init::run_init_global(&path)?;
         } else {
             init::run_init(&path)?;
         }
+        report.created = Some(agents::absolute_path(&path, &cwd)?);
         return Ok(false);
     }
     let central = config::find_central_manifest()?;
@@ -155,6 +211,9 @@ fn run(cli: Cli) -> Result<bool> {
             }
         }
         let lock_path = lock_path_for_manifest(&path);
+        if !local_status && !cli.dry_run {
+            run_locks.acquire("manifest", &lock_path)?;
+        }
         // A v1 lock belonged to one target; never pretend it already owns every new target.
         let legacy_target = if cli.global && manifest.sync.is_none() {
             config::global_target_dir()?
@@ -167,6 +226,14 @@ fn run(cli: Cli) -> Result<bool> {
             DeploymentLock::read(&lock_path, &legacy_target).map_err(SkillSyncError::Io)?;
         lock.bind_scope(scope, path.parent().unwrap())
             .map_err(SkillSyncError::Io)?;
+        if !local_status && !cli.dry_run {
+            for target in targets
+                .iter()
+                .chain(lock.installations.iter().map(|entry| &entry.target))
+            {
+                run_locks.acquire("target", target)?;
+            }
+        }
         if cli.verbose {
             eprintln!(
                 "manifest: {}\nlock: {}\nscope: {:?}",
@@ -177,6 +244,45 @@ fn run(cli: Cli) -> Result<bool> {
             for target in &targets {
                 eprintln!("target: {}", target.display());
             }
+        }
+        if local_status {
+            let snapshot = status::inspect(&manifest.skills.repos, &targets, &lock);
+            report.pending_changes |= snapshot.attention_required;
+            if !cli.json {
+                println!("Local status: {} (upstream not checked)", path.display());
+                for entry in &snapshot.entries {
+                    println!(
+                        "{:?}: {}{}",
+                        entry.state,
+                        entry.target.join(&entry.directory).display(),
+                        if entry.managed && !entry.selected {
+                            " (no longer selected)"
+                        } else {
+                            ""
+                        }
+                    );
+                    if let Some(detail) = &entry.detail {
+                        println!("  {detail}");
+                    }
+                }
+                for source in &snapshot.unresolved_sources {
+                    println!("Unresolved: {source} (sync required to discover skills)");
+                }
+                if !snapshot.attention_required {
+                    println!("local state matches recorded installations; remote revisions and collection membership not checked");
+                }
+            }
+            report.manifests.push(ManifestReport {
+                manifest: path,
+                lock: lock_path,
+                scope,
+                targets,
+                operations: Vec::new(),
+                unchanged: 0,
+                conflicts: Vec::new(),
+                status: Some(snapshot),
+            });
+            continue;
         }
         // Empty manifests need no HTTP client, credentials, or Git access.
         let sources = if manifest.skills.repos.is_empty() {
@@ -206,16 +312,32 @@ fn run(cli: Cli) -> Result<bool> {
             }
         }
         let plan = engine::plan(skills, &targets, &lock);
-        for op in &plan.operations {
-            println!("{:?}: {} -> {}", op.action, op.skill, op.target.display());
+        if !cli.json {
+            for op in &plan.operations {
+                println!("{:?}: {} -> {}", op.action, op.skill, op.target.display());
+            }
+            for conflict in &plan.conflicts {
+                eprintln!("conflict: {conflict}");
+            }
+            if plan.operations.is_empty() && plan.conflicts.is_empty() {
+                println!("everything up to date ({} copies)", plan.skips);
+            }
         }
-        for conflict in &plan.conflicts {
-            eprintln!("conflict: {conflict}");
-        }
-        if plan.operations.is_empty() && plan.conflicts.is_empty() {
-            println!("everything up to date ({} copies)", plan.skips);
-        }
+        report.pending_changes |= !plan.operations.is_empty();
+        report.manifests.push(ManifestReport {
+            manifest: path,
+            lock: lock_path.clone(),
+            scope,
+            targets: targets.clone(),
+            operations: plan.operations.iter().map(Into::into).collect(),
+            unchanged: plan.skips,
+            conflicts: plan.conflicts.clone(),
+            status: None,
+        });
         jobs.push((lock_path, targets, lock, sources, plan));
+    }
+    if local_status {
+        return Ok(report.pending_changes);
     }
     // All manifests are planned before the first target is changed.
     let conflicts: Vec<_> = jobs
@@ -234,14 +356,41 @@ fn run(cli: Cli) -> Result<bool> {
         return Ok(jobs.iter().any(|job| !job.4.operations.is_empty()));
     }
     let mut errors = Vec::new();
-    for (lock_path, targets, mut lock, sources, plan) in jobs {
+    for (index, (lock_path, targets, mut lock, sources, plan)) in jobs.into_iter().enumerate() {
         let skills = sources.as_ref().map(|s| s.skills.as_slice()).unwrap_or(&[]);
-        if let Err(err) = engine::apply(&plan, skills, &targets, &mut lock, &lock_path, cli.force) {
+        let mut operation_index = 0;
+        if let Err(err) = engine::apply_with_observer(
+            &plan,
+            skills,
+            &targets,
+            &mut lock,
+            &lock_path,
+            cli.force,
+            |op, outcome, error| {
+                let item = &mut report.manifests[index].operations[operation_index];
+                item.outcome = outcome;
+                item.error = error;
+                operation_index += 1;
+                if !cli.json {
+                    println!(
+                        "{outcome:?}: {:?} {} -> {}",
+                        op.action,
+                        op.skill,
+                        op.target.display()
+                    );
+                }
+            },
+        ) {
             errors.push(err.to_string());
         }
     }
+    report.pending_changes = report
+        .manifests
+        .iter()
+        .flat_map(|job| &job.operations)
+        .any(|op| op.outcome != engine::Outcome::Applied);
     if !errors.is_empty() {
         return Err(SkillSyncError::Config(errors.join("\n")).into());
     }
-    Ok(false)
+    Ok(report.pending_changes)
 }

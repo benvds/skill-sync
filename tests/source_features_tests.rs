@@ -135,12 +135,12 @@ impl ApiFixture {
                 {
                     match reference {
                         "missing" => (404, "{}".to_owned()),
-                        "main" => (200, serde_json::json!({"sha": new}).to_string()),
+                        "main" => (200, serde_json::json!({ "sha": new }).to_string()),
                         reference
                             if ["v1.0.0", "1.0.0", "release%2Fv1", &old, &old[..7]]
                                 .contains(&reference) =>
                         {
-                            (200, serde_json::json!({"sha": old}).to_string())
+                            (200, serde_json::json!({ "sha": old }).to_string())
                         }
                         _ => panic!("unexpected ref {reference}"),
                     }
