@@ -3,7 +3,7 @@ use crate::{
     deployment::{DeploymentLock, Installation},
     error::{Result, SkillSyncError},
     github::GitHubClient,
-    manifest::{parse_repo_entry, Manifest},
+    manifest::{parse_repo_entry, split_revision, Manifest},
     resolver, sync,
 };
 use chrono::Utc;
@@ -136,41 +136,70 @@ pub struct PreparedSources {
 impl PreparedSources {
     pub fn fetch(manifest: &Manifest, client: &GitHubClient, token: Option<&str>) -> Result<Self> {
         let checkout = tempfile::tempdir().map_err(SkillSyncError::Io)?;
-        let mut groups: BTreeMap<String, Vec<Option<String>>> = BTreeMap::new();
+        let mut groups: BTreeMap<(String, Option<String>), Vec<Option<String>>> = BTreeMap::new();
         for entry in &manifest.skills.repos {
             let (owner, repo, subdir) = parse_repo_entry(entry);
             groups
-                .entry(format!("{owner}/{repo}"))
+                .entry((
+                    format!("{owner}/{repo}"),
+                    split_revision(entry).1.map(str::to_owned),
+                ))
                 .or_default()
                 .push(subdir.map(str::to_owned));
         }
         let mut skills = Vec::new();
-        for (index, (slug, pins)) in groups.into_iter().enumerate() {
+        let mut versions = BTreeMap::new();
+        for (index, ((slug, revision), pins)) in groups.into_iter().enumerate() {
             let (owner, repo, _) = parse_repo_entry(&slug);
-            let info = client.get_repo_info(owner, repo)?;
-            let mut tree = client.get_tree(owner, repo, &info.default_branch)?;
+            let commit = revision
+                .as_deref()
+                .map(|revision| client.resolve_revision(owner, repo, revision))
+                .transpose()?;
+            let reference = match &commit {
+                Some(sha) => sha.clone(),
+                None => client.get_repo_info(owner, repo)?.default_branch,
+            };
+            let mut tree = client.get_tree(owner, repo, &reference)?;
             let root = checkout.path().join(index.to_string());
             let url = sync::build_clone_url(&slug, token);
             let sparse = pins.iter().all(Option::is_some);
-            let mut clone_args = vec![
-                "clone",
-                "--depth=1",
-                "--filter=blob:none",
-                "--branch",
-                &info.default_branch,
-            ];
-            if sparse {
-                clone_args.push("--no-checkout");
+            if let Some(commit) = &commit {
+                // `clone --branch` cannot select arbitrary (or older) commit hashes.
+                sync::run_git(&["init", root.to_str().unwrap()], None)?;
+                sync::run_git(&["remote", "add", "origin", &url], Some(&root))?;
+                sync::run_git(
+                    &["fetch", "--depth=1", "--filter=blob:none", "origin", commit],
+                    Some(&root),
+                )?;
+            } else {
+                let mut clone_args = vec![
+                    "clone",
+                    "--depth=1",
+                    "--filter=blob:none",
+                    "--branch",
+                    &reference,
+                ];
+                if sparse {
+                    clone_args.push("--no-checkout");
+                }
+                clone_args.extend(["--", &url, root.to_str().unwrap()]);
+                sync::run_git(&clone_args, None)?;
             }
-            clone_args.extend(["--", &url, root.to_str().unwrap()]);
-            sync::run_git(&clone_args, None)?;
             if sparse {
                 sync::run_git(&["sparse-checkout", "init", "--cone"], Some(&root))?;
                 let mut args = vec!["sparse-checkout", "set", "--"];
                 args.extend(pins.iter().filter_map(|pin| pin.as_deref()));
                 sync::run_git(&args, Some(&root))?;
+            }
+            if let Some(commit) = &commit {
+                sync::run_git(&["checkout", "--detach", commit], Some(&root))?;
+            } else if sparse {
                 sync::run_git(&["checkout"], Some(&root))?;
             }
+            let checkout_commit = String::from_utf8(git_output(&root, &["rev-parse", "HEAD"])?)
+                .map_err(|e| failure(&root, e.to_string()))?
+                .trim()
+                .to_owned();
             // The checkout is authoritative when the API is cached or truncated.
             let actual = git_output(&root, &["rev-parse", "HEAD^{tree}"])?;
             let sha = String::from_utf8(actual)
@@ -207,29 +236,37 @@ impl PreparedSources {
             }
             let mut selected = BTreeMap::new();
             for pin in pins {
-                let detected = if let Some(pin) = pin {
-                    vec![resolver::detect_pinned_skill(&tree, &pin).ok_or_else(|| {
-                        failure(
-                            Path::new(&slug),
-                            format!("no SKILL.md found at {pin}/SKILL.md"),
-                        )
-                    })?]
-                } else {
-                    resolver::detect_skills(&tree)
-                };
+                let detected = resolver::detect_skills_under(&tree, pin.as_deref());
                 if detected.is_empty() {
-                    return Err(failure(Path::new(&slug), "no SKILL.md found"));
+                    return Err(failure(
+                        Path::new(&slug),
+                        format!(
+                            "no SKILL.md found at or below {}",
+                            pin.as_deref().unwrap_or("repository root")
+                        ),
+                    ));
                 }
                 for skill in detected {
                     selected.insert(resolver::skill_key(&slug, &skill.subdirectory), skill);
                 }
             }
             for (key, remote) in selected {
+                // Source identities stay stable when a pin changes, allowing normal updates.
+                let sha = commit.as_ref().unwrap_or(&tree.sha);
+                if let Some(previous) = versions.insert(key.clone(), checkout_commit.clone()) {
+                    if previous != checkout_commit {
+                        return Err(failure(
+                            Path::new(&key),
+                            "source selects conflicting revisions of the same skill",
+                        ));
+                    }
+                    continue;
+                }
                 let path = remote
                     .subdirectory
                     .map(|dir| root.join(dir))
                     .unwrap_or_else(|| root.clone());
-                skills.push(PreparedSkill::from_directory(key, tree.sha.clone(), path)?);
+                skills.push(PreparedSkill::from_directory(key, sha.clone(), path)?);
             }
         }
         Ok(Self {
@@ -272,6 +309,48 @@ pub struct Plan {
     pub operations: Vec<Operation>,
     pub conflicts: Vec<String>,
     pub skips: usize,
+}
+
+/// Count distinct newly installed skills, independently of the number of targets.
+pub fn new_skill_count<'a>(plans: impl IntoIterator<Item = &'a Plan>) -> usize {
+    plans
+        .into_iter()
+        .flat_map(|plan| &plan.operations)
+        .filter(|op| op.action == Action::Install)
+        .map(|op| &op.skill)
+        .collect::<BTreeSet<_>>()
+        .len()
+}
+
+/// Confirm the complete run before any target or lock is changed.
+pub fn confirm_bulk_install(count: usize, force: bool, dry_run: bool) -> Result<()> {
+    confirm_bulk_install_with(count, force, dry_run, || {
+        matches!(
+            dialoguer::Confirm::new()
+                .with_prompt(format!("Install {count} skills?"))
+                .default(false)
+                .interact_opt(),
+            Ok(Some(true))
+        )
+    })
+}
+
+fn confirm_bulk_install_with(
+    count: usize,
+    force: bool,
+    dry_run: bool,
+    confirm: impl FnOnce() -> bool,
+) -> Result<()> {
+    if count < 10 {
+        return Ok(());
+    }
+    eprintln!("warning: this run will install {count} skills (copies across agents counted once)");
+    if !dry_run && !force && !confirm() {
+        return Err(SkillSyncError::Config(
+            "bulk installation cancelled; no targets or locks changed. Confirm interactively or use --force for CI".into()
+        ).into());
+    }
+    Ok(())
 }
 
 fn exists(path: &Path) -> bool {
@@ -525,4 +604,31 @@ pub fn apply(
         return Err(failure(lock_path, errors.join("\n")));
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod confirmation_tests {
+    use super::confirm_bulk_install_with;
+
+    #[test]
+    fn bulk_install_threshold_and_overrides() {
+        for count in [0, 9] {
+            assert!(
+                confirm_bulk_install_with(count, false, false, || panic!("unexpected prompt"))
+                    .is_ok()
+            );
+        }
+        for count in [10, 11] {
+            assert!(confirm_bulk_install_with(count, false, false, || false).is_err());
+            assert!(confirm_bulk_install_with(count, false, false, || true).is_ok());
+            assert!(confirm_bulk_install_with(count, true, false, || panic!(
+                "force must not prompt"
+            ))
+            .is_ok());
+            assert!(confirm_bulk_install_with(count, false, true, || panic!(
+                "dry-run must not prompt"
+            ))
+            .is_ok());
+        }
+    }
 }

@@ -25,7 +25,7 @@ pub enum SkillSyncError {
     #[error("invalid repo format: `{repo}`")]
     #[diagnostic(
         code(skill_sync::manifest::invalid_repo),
-        help("Repos must match `owner/repo` or `owner/repo/subdir` format (e.g., `anthropics/skills` or `anthropics/skills/skills/pdf`)")
+        help("Use `owner/repo` or `owner/repo/subdir`, optionally followed by `@tag`, `@branch` or `@commit` (e.g., `owner/repo/skills/pdf@v1.2.3`)")
     )]
     InvalidRepo { repo: String },
 
@@ -48,11 +48,18 @@ pub enum SkillSyncError {
         code(skill_sync::github::rate_limited),
         help("Rate limit hit: {remaining} requests remaining, resets at epoch {reset_epoch:?}. Authenticate with GITHUB_TOKEN or `gh auth login` for 5,000 req/hr (vs 60 unauthenticated).")
     )]
-    RateLimited { remaining: u64, reset_epoch: Option<i64> },
+    RateLimited {
+        remaining: u64,
+        reset_epoch: Option<i64>,
+    },
 
     #[error("GitHub API error for `{repo}`: {status} {message}")]
     #[diagnostic(code(skill_sync::github::api_error))]
-    GitHubApi { status: u16, message: String, repo: String },
+    GitHubApi {
+        status: u16,
+        message: String,
+        repo: String,
+    },
 
     #[error("repository not found: `{repo}`")]
     #[diagnostic(
@@ -74,10 +81,7 @@ pub enum SkillSyncError {
     Io(#[from] std::io::Error),
 
     #[error("git command failed: `git {args}`")]
-    #[diagnostic(
-        code(skill_sync::sync::git_failed),
-        help("{stderr}")
-    )]
+    #[diagnostic(code(skill_sync::sync::git_failed), help("{stderr}"))]
     GitFailed { args: String, stderr: String },
 
     #[error("git not found — ensure git is installed and in PATH")]

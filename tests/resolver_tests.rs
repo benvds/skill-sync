@@ -71,16 +71,47 @@ fn detect_no_skills() {
 }
 
 #[test]
-fn detect_ignores_deep_nesting() {
-    let tree = make_tree(&[
-        ("a/b/SKILL.md", "blob"), // two levels deep — should be ignored
-        ("README.md", "blob"),
-    ]);
+fn detect_finds_deep_nesting() {
+    let tree = make_tree(&[("a/b/SKILL.md", "blob"), ("README.md", "blob")]);
     let skills = detect_skills(&tree);
-    assert!(
-        skills.is_empty(),
-        "deeply nested SKILL.md should be ignored"
+    assert_eq!(skills.len(), 1);
+    assert_eq!(skills[0].subdirectory.as_deref(), Some("a/b"));
+}
+
+#[test]
+fn collection_search_is_recursive_and_stays_inside_the_requested_folder() {
+    use skill_sync::resolver::detect_skills_under;
+    let tree = make_tree(&[
+        ("SKILL.md", "blob"),
+        ("skills/team/deep/one/SKILL.md", "blob"),
+        ("skills/team/two/SKILL.md", "blob"),
+        ("skills/teammate/SKILL.md", "blob"),
+        ("elsewhere/SKILL.md", "blob"),
+        ("skills/team/fake/SKILL.md", "tree"),
+    ]);
+    let selected = detect_skills_under(&tree, Some("skills/team"));
+    assert_eq!(
+        selected
+            .iter()
+            .map(|s| s.subdirectory.as_deref().unwrap())
+            .collect::<Vec<_>>(),
+        vec!["skills/team/deep/one", "skills/team/two"]
     );
+    assert!(detect_skills_under(&tree, Some("missing")).is_empty());
+}
+
+#[test]
+fn a_requested_skill_takes_precedence_over_its_descendants() {
+    use skill_sync::resolver::detect_skills_under;
+    let tree = make_tree(&[
+        ("skills/one/SKILL.md", "blob"),
+        ("skills/one/examples/another/SKILL.md", "blob"),
+    ]);
+    let selected = detect_skills_under(&tree, Some("skills/one"));
+    assert_eq!(selected.len(), 1);
+    assert_eq!(selected[0].subdirectory.as_deref(), Some("skills/one"));
+    // A collection without its own SKILL.md includes every descendant skill.
+    assert_eq!(detect_skills_under(&tree, Some("skills")).len(), 2);
 }
 
 #[test]

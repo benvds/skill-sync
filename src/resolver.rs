@@ -68,30 +68,37 @@ pub fn skill_key(repo: &str, subdirectory: &Option<String>) -> String {
 ///
 /// Rules:
 /// 1. Root SKILL.md wins — if present, treat as single-skill repo
-/// 2. One-level-deep subdirectory SKILL.md files detected for monorepos
+/// 2. Otherwise find SKILL.md files at every depth
 /// 3. Only blob type entries are considered (not tree or commit)
-/// 4. Deeply nested SKILL.md files (2+ levels) are ignored
 pub fn detect_skills(tree: &TreeResponse) -> Vec<RemoteSkill> {
-    // Check root first — root SKILL.md wins
-    let has_root_skill = tree
+    detect_skills_under(tree, None)
+}
+
+/// Select the requested skill itself, or all skills below a collection directory.
+/// A component boundary keeps `skills/extra` outside the `skills/ex` selection.
+pub fn detect_skills_under(tree: &TreeResponse, directory: Option<&str>) -> Vec<RemoteSkill> {
+    let directory = directory.unwrap_or("");
+    let prefix = if directory.is_empty() {
+        String::new()
+    } else {
+        format!("{directory}/")
+    };
+    let skill_file = format!("{prefix}SKILL.md");
+    if tree
         .tree
         .iter()
-        .any(|e| e.path == "SKILL.md" && e.entry_type == "blob");
-
-    if has_root_skill {
+        .any(|e| e.entry_type == "blob" && e.path == skill_file)
+    {
         return vec![RemoteSkill {
-            subdirectory: None,
+            subdirectory: (!directory.is_empty()).then(|| directory.to_owned()),
             tree_sha: tree.sha.clone(),
         }];
     }
-
-    // Check one-level-deep subdirectories
-    tree.tree
+    let mut skills: Vec<_> = tree
+        .tree
         .iter()
         .filter(|e| {
-            e.entry_type == "blob"
-                && e.path.ends_with("/SKILL.md")
-                && e.path.matches('/').count() == 1
+            e.entry_type == "blob" && e.path.ends_with("/SKILL.md") && e.path.starts_with(&prefix)
         })
         .map(|e| {
             let subdir = e.path.strip_suffix("/SKILL.md").unwrap().to_string();
@@ -100,7 +107,9 @@ pub fn detect_skills(tree: &TreeResponse) -> Vec<RemoteSkill> {
                 tree_sha: tree.sha.clone(),
             }
         })
-        .collect()
+        .collect();
+    skills.sort_by(|a, b| a.subdirectory.cmp(&b.subdirectory));
+    skills
 }
 
 /// A pinned subdirectory must actually contain a SKILL.md file in the remote tree.
