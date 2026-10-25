@@ -4,7 +4,7 @@ use std::process::{Command, Stdio};
 
 use owo_colors::{OwoColorize, Stream};
 
-use crate::error::SkillsSyncError;
+use crate::error::SkillSyncError;
 use crate::metadata::{read_lock_file, write_lock_file_atomic, LockFile, SkillMeta};
 use crate::resolver::skill_key;
 
@@ -60,18 +60,18 @@ pub fn run_git(args: &[&str], cwd: Option<&Path>) -> crate::error::Result<()> {
 
     let child = cmd.spawn().map_err(|e| {
         if e.kind() == std::io::ErrorKind::NotFound {
-            SkillsSyncError::GitNotFound { source: e }
+            SkillSyncError::GitNotFound { source: e }
         } else {
-            SkillsSyncError::Io(e)
+            SkillSyncError::Io(e)
         }
     })?;
 
-    let output = child.wait_with_output().map_err(SkillsSyncError::Io)?;
+    let output = child.wait_with_output().map_err(SkillSyncError::Io)?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
         let args_str = args.join(" ");
-        return Err(SkillsSyncError::GitFailed {
+        return Err(SkillSyncError::GitFailed {
             args: args_str,
             stderr,
         }
@@ -104,10 +104,10 @@ pub fn execute_install(
 ) -> crate::error::Result<()> {
     let dir_name = skill_dir_name(repo, subdirectory);
     let final_path = target_dir.join(&dir_name);
-    let tmp_name = format!(".skills-sync-tmp-{}-{}", std::process::id(), &dir_name);
+    let tmp_name = format!(".skill-sync-tmp-{}-{}", std::process::id(), &dir_name);
     let tmp_path = target_dir.join(&tmp_name);
 
-    std::fs::create_dir_all(target_dir).map_err(SkillsSyncError::Io)?;
+    std::fs::create_dir_all(target_dir).map_err(SkillSyncError::Io)?;
 
     let clone_url = build_clone_url(repo, token);
     let tmp_path_str = tmp_path.to_string_lossy().into_owned();
@@ -129,7 +129,7 @@ pub fn execute_install(
             )
             .and_then(|_| {
                 std::fs::rename(&tmp_path, &final_path).map_err(|e| {
-                    SkillsSyncError::RenameFailed {
+                    SkillSyncError::RenameFailed {
                         path: final_path.clone(),
                         source: e,
                     }
@@ -160,7 +160,7 @@ pub fn execute_install(
             .and_then(|_| run_git(&["checkout"], Some(&tmp_path)))
             .and_then(|_| {
                 std::fs::rename(tmp_path.join(subdir), &final_path).map_err(|e| {
-                    SkillsSyncError::RenameFailed {
+                    SkillSyncError::RenameFailed {
                         path: final_path.clone(),
                         source: e,
                     }
@@ -190,7 +190,7 @@ pub fn execute_install(
     };
     let key = skill_key(repo, subdirectory);
     lock_file.skills.insert(key, meta);
-    write_lock_file_atomic(lock_path, lock_file).map_err(SkillsSyncError::Io)?;
+    write_lock_file_atomic(lock_path, lock_file).map_err(SkillSyncError::Io)?;
 
     Ok(())
 }
@@ -222,7 +222,7 @@ pub fn execute_update(
         .unwrap_or_else(chrono::Utc::now);
 
     // Remove old directory
-    std::fs::remove_dir_all(&existing_path).map_err(|e| SkillsSyncError::RemoveFailed {
+    std::fs::remove_dir_all(&existing_path).map_err(|e| SkillSyncError::RemoveFailed {
         path: existing_path.clone(),
         source: e,
     })?;
@@ -234,7 +234,7 @@ pub fn execute_update(
     if let Some(meta) = lock_file.skills.get_mut(&key) {
         meta.installed_at = installed_at;
     }
-    write_lock_file_atomic(lock_path, lock_file).map_err(SkillsSyncError::Io)?;
+    write_lock_file_atomic(lock_path, lock_file).map_err(SkillSyncError::Io)?;
 
     Ok(())
 }
@@ -250,7 +250,7 @@ pub fn execute_remove(
     lock_file: &mut LockFile,
     skill_key_str: &str,
 ) -> crate::error::Result<()> {
-    std::fs::remove_dir_all(skill_path).map_err(|e| SkillsSyncError::RemoveFailed {
+    std::fs::remove_dir_all(skill_path).map_err(|e| SkillSyncError::RemoveFailed {
         path: skill_path.to_owned(),
         source: e,
     })?;
@@ -265,7 +265,7 @@ pub fn execute_remove(
 
 /// Clean up stale temp directories left by interrupted sync runs.
 ///
-/// Scans `target_dir` for entries matching `.skills-sync-tmp-*` and removes
+/// Scans `target_dir` for entries matching `.skill-sync-tmp-*` and removes
 /// them. Errors are silently ignored (best-effort cleanup).
 pub fn cleanup_stale_temp_dirs(target_dir: &Path) {
     let entries = match std::fs::read_dir(target_dir) {
@@ -276,7 +276,7 @@ pub fn cleanup_stale_temp_dirs(target_dir: &Path) {
     for entry in entries.flatten() {
         let name = entry.file_name();
         let name_str = name.to_string_lossy();
-        if name_str.starts_with(".skills-sync-tmp-") {
+        if name_str.starts_with(".skill-sync-tmp-") {
             eprintln!("cleaned up stale temp dir: {}", name_str);
             let _ = std::fs::remove_dir_all(entry.path());
         }
@@ -382,7 +382,7 @@ pub fn execute_sync_plan(
     let _ = std::fs::create_dir_all(target_dir);
 
     // Read consolidated lock file (returns empty if not found)
-    let mut lock_file = read_lock_file(lock_path).map_err(SkillsSyncError::Io)?;
+    let mut lock_file = read_lock_file(lock_path).map_err(SkillSyncError::Io)?;
 
     let mut failed_skills: Vec<String> = Vec::new();
     let mut install_count: usize = 0;
@@ -563,7 +563,7 @@ pub fn execute_sync_plan(
     );
     if failed_count > 0 {
         println!("{}", summary.if_supports_color(Stream::Stdout, |t| t.red()));
-        return Err(SkillsSyncError::SyncFailed {
+        return Err(SkillSyncError::SyncFailed {
             repo: "multiple".to_string(),
             reason: format!("{} skill(s) failed to sync", failed_count),
         }

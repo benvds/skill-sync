@@ -1,4 +1,4 @@
-# Product Requirements Document: `skills-sync`
+# Product Requirements Document: `skill-sync`
 
 **Version:** 0.1.0
 **Author:** Ben / Lean Digital
@@ -7,7 +7,7 @@
 
 ## Summary
 
-`skills-sync` is a command-line tool that manages agentic skills (e.g. Claude Skills, Cursor rules, or similar AI coding assistant configurations) by syncing them from GitHub repositories to a local or global skills directory. It reads a declarative `.skills.toml` manifest file, resolves each listed repository, and ensures the local skills directory matches the desired state.
+`skill-sync` is a command-line tool that manages agentic skills (e.g. Claude Skills, Cursor rules, or similar AI coding assistant configurations) by syncing them from GitHub repositories to a local or global skills directory. It reads a declarative `.skills.toml` manifest file, resolves each listed repository, and ensures the local skills directory matches the desired state.
 
 ## Problem
 
@@ -39,11 +39,11 @@ TOML is the right fit here. It's human-readable, supports comments natively (cri
 ### Schema
 
 ```toml
-# .skills.toml - Skills manifest for skills-sync
-# Docs: https://github.com/user/skills-sync
+# .skills.toml - Skills manifest for skill-sync
+# Docs: https://github.com/benvds/skill-sync
 
 # Each skill entry is a GitHub repository.
-# skills-sync will inspect the repo to determine if it's:
+# skill-sync will inspect the repo to determine if it's:
 #   1. A single skill (SKILL.md at root) → installed as-is
 #   2. A monorepo with multiple skills (subdirectories containing SKILL.md) → each extracted
 
@@ -62,10 +62,10 @@ repos = [
 
 ### File Discovery
 
-`skills-sync` looks for the manifest in this order:
+`skill-sync` looks for the manifest in this order:
 
 1. `.skills.toml` in the current directory (for `--local`)
-2. `~/.config/skills-sync/skills.toml` (for `--global`)
+2. `~/.config/skill-sync/skills.toml` (for `--global`)
 3. Explicit path via `--config <path>`
 
 ---
@@ -75,7 +75,7 @@ repos = [
 ### Usage
 
 ```
-skills-sync [FLAGS] [OPTIONS]
+skill-sync [FLAGS] [OPTIONS]
 
 FLAGS:
     --global          Sync skills to ~/.claude/skills
@@ -95,7 +95,7 @@ OPTIONS:
 
 `--global` and `--local` are mutually exclusive. If neither is provided, default to `--local`.
 
-`--init` creates a `.skills.toml` file in the current directory (or `~/.config/skills-sync/skills.toml` when combined with `--global`). The generated file contains commented-out documentation explaining the format, plus a few example entries.
+`--init` creates a `.skills.toml` file in the current directory (or `~/.config/skill-sync/skills.toml` when combined with `--global`). The generated file contains commented-out documentation explaining the format, plus a few example entries.
 
 ---
 
@@ -156,7 +156,7 @@ Compare the desired state (manifest) against the current state (what's installed
 | **Orphaned skill** (installed, not in manifest) | List and prompt for deletion |
 | **Up-to-date skill** (installed, matches remote HEAD) | Skip (log in verbose mode) |
 
-**Freshness check:** Compare the local HEAD SHA against the remote default branch HEAD SHA. Use `git ls-remote` for the remote check (no clone needed) and read `.git/HEAD` or a stored `.skills-sync-meta.json` file in each skill directory for the local state.
+**Freshness check:** Compare the local HEAD SHA against the remote default branch HEAD SHA. Use `git ls-remote` for the remote check (no clone needed) and read `.git/HEAD` or a stored `.skill-sync-meta.json` file in each skill directory for the local state.
 
 ### 5. Execute Sync
 
@@ -169,15 +169,15 @@ git clone --depth 1 https://github.com/{owner}/{repo}.git {target}/{skill-name}
 
 For a monorepo with nested skills, use sparse checkout:
 ```
-git clone --depth 1 --filter=blob:none --sparse https://github.com/{owner}/{repo}.git /tmp/skills-sync-{repo}
-cd /tmp/skills-sync-{repo}
+git clone --depth 1 --filter=blob:none --sparse https://github.com/{owner}/{repo}.git /tmp/skill-sync-{repo}
+cd /tmp/skill-sync-{repo}
 git sparse-checkout set {subdirectory}
 cp -r {subdirectory} {target}/{skill-name}
 ```
 
 After install, write metadata:
 ```json
-// {target}/{skill-name}/.skills-sync-meta.json
+// {target}/{skill-name}/.skill-sync-meta.json
 {
   "source": "owner/repo",
   "subdirectory": null,
@@ -215,24 +215,24 @@ With `--force`, skip the prompt and remove them. With `--dry-run`, just list the
 
 ## The `--init` Output
 
-Running `skills-sync --init` creates:
+Running `skill-sync --init` creates:
 
 ```toml
 # ============================================================================
-# .skills.toml - Skills manifest for skills-sync
+# .skills.toml - Skills manifest for skill-sync
 # ============================================================================
 #
 # This file declares which agentic skills to sync to your skills directory.
-# Run `skills-sync` to install and update all listed skills.
+# Run `skill-sync` to install and update all listed skills.
 #
 # USAGE:
-#   skills-sync --local      Sync to ./.claude/skills (default)
-#   skills-sync --global     Sync to ~/.claude/skills
-#   skills-sync --dry-run    Preview changes without applying
+#   skill-sync --local      Sync to ./.claude/skills (default)
+#   skill-sync --global     Sync to ~/.claude/skills
+#   skill-sync --dry-run    Preview changes without applying
 #
 # REPOSITORY FORMAT:
 #   Each entry is a GitHub "owner/repo" string.
-#   skills-sync auto-detects the repo structure:
+#   skill-sync auto-detects the repo structure:
 #
 #   - If the repo has a SKILL.md at root → installed as a single skill
 #   - If subdirectories have SKILL.md files → each is extracted as a skill
@@ -255,7 +255,7 @@ repos = [
 
 ## Metadata and State Tracking
 
-Each installed skill gets a `.skills-sync-meta.json` file. This is how `skills-sync` tracks what's installed, where it came from, and whether it's current.
+Each installed skill gets a `.skill-sync-meta.json` file. This is how `skill-sync` tracks what's installed, where it came from, and whether it's current.
 
 The metadata file is small, doesn't interfere with the skill itself, and makes orphan detection and update checks possible without hitting the GitHub API for every installed skill.
 
@@ -305,7 +305,7 @@ Rust gives you a single binary with no runtime dependencies, proper error handli
 ### Project Structure
 
 ```
-skills-sync/
+skill-sync/
 ├── Cargo.toml
 ├── README.md
 ├── LICENSE
@@ -316,7 +316,7 @@ skills-sync/
 │   ├── github.rs            # GitHub API client, repo structure detection
 │   ├── resolver.rs          # Diff computation (missing/outdated/orphaned)
 │   ├── sync.rs              # Install, update, remove operations
-│   ├── metadata.rs          # .skills-sync-meta.json read/write
+│   ├── metadata.rs          # .skill-sync-meta.json read/write
 │   └── init.rs              # --init template generation
 └── tests/
     ├── config_test.rs
@@ -332,7 +332,7 @@ skills-sync/
 ### Normal Sync
 
 ```
-$ skills-sync --local
+$ skill-sync --local
 
 Reading .skills.toml...
 Resolving 3 repositories...
@@ -361,7 +361,7 @@ Done. 4 installed, 1 updated, 1 removed, 1 skipped.
 ### Dry Run
 
 ```
-$ skills-sync --dry-run
+$ skill-sync --dry-run
 
 Would sync to ./.claude/skills/:
   [install]  docx (from anthropics/claude-skills)
@@ -380,14 +380,14 @@ No changes made (dry run).
 ### Homebrew
 
 ```ruby
-class SkillsSync < Formula
+class SkillSync < Formula
   desc "Sync agentic skills from GitHub repositories"
-  homepage "https://github.com/user/skills-sync"
-  url "https://github.com/user/skills-sync/releases/download/v0.1.0/skills-sync-v0.1.0.tar.gz"
+  homepage "https://github.com/benvds/skill-sync"
+  url "https://github.com/benvds/skill-sync/releases/download/v0.1.0/skill-sync-v0.1.0.tar.gz"
   sha256 "..."
 
   def install
-    bin.install "skills-sync"
+    bin.install "skill-sync"
   end
 end
 ```
@@ -395,7 +395,7 @@ end
 ### Cargo
 
 ```
-cargo install skills-sync
+cargo install skill-sync
 ```
 
 ### Pre-built Binaries
@@ -416,8 +416,8 @@ These are out of scope for v1 but worth designing around:
 - **GitLab/Bitbucket support:** Abstract the git hosting provider
 - **Skill validation:** Lint SKILL.md files for required fields
 - **Lock file:** `.skills-lock.toml` to pin exact SHAs for reproducible setups
-- **Skill templates:** `skills-sync new <name>` to scaffold a new skill repo
-- **Watch mode:** `skills-sync --watch` to auto-sync on manifest changes
+- **Skill templates:** `skill-sync new <name>` to scaffold a new skill repo
+- **Watch mode:** `skill-sync --watch` to auto-sync on manifest changes
 - **Workspace support:** Multiple `.skills.toml` files in a monorepo, each syncing to their own target
 
 ---
@@ -430,4 +430,4 @@ These are out of scope for v1 but worth designing around:
 
 3. **How to handle skills with the same name from different repos?** Prefix with repo name (`anthropics-docx` vs `myorg-docx`)? Or error on collision?
 
-4. **Should metadata file be `.skills-sync-meta.json` or store everything in one central file?** Per-skill metadata is simpler to manage but adds a file to each skill directory.
+4. **Should metadata file be `.skill-sync-meta.json` or store everything in one central file?** Per-skill metadata is simpler to manage but adds a file to each skill directory.

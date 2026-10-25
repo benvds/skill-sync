@@ -1,22 +1,22 @@
-use crate::error::SkillsSyncError;
+use crate::error::SkillSyncError;
 use std::path::Path;
 
 /// The documented sample .skills.toml template.
 /// Tutorial-style with full header, usage section, format explanation,
 /// and commented examples -- self-teaching for new users.
 const INIT_TEMPLATE: &str = r#"# ============================================================================
-# skills-sync manifest
+# skill-sync manifest
 # ============================================================================
 #
-# This file tells skills-sync which skill repos to install.
-# Run `skills-sync` to sync all listed repos to your skills directory.
+# This file tells skill-sync which skill repos to install.
+# Run `skill-sync` to sync all listed repos to your skills directory.
 #
 # -- Usage --------------------------------------------------------------------
 #
-#   skills-sync              Sync all repos listed below
-#   skills-sync --dry-run    Preview changes without applying
-#   skills-sync --verbose    Show detailed sync output
-#   skills-sync --global     Sync to ~/.claude/skills/ instead of local
+#   skill-sync              Sync all repos listed below
+#   skill-sync --dry-run    Preview changes without applying
+#   skill-sync --verbose    Show detailed sync output
+#   skill-sync --global     Sync to ~/.claude/skills/ instead of local
 #
 # -- Format -------------------------------------------------------------------
 #
@@ -30,7 +30,7 @@ const INIT_TEMPLATE: &str = r#"# ===============================================
 #
 #   Single-skill repos have a SKILL.md at the repository root.
 #   Monorepos contain subdirectories, each with their own SKILL.md.
-#   skills-sync detects the layout automatically.
+#   skill-sync detects the layout automatically.
 #
 #   For monorepo skills, specify the subdirectory path:
 #
@@ -62,13 +62,13 @@ repos = [
 /// Returns an error if the file already exists (refuses to overwrite).
 pub fn run_init(path: &Path) -> crate::error::Result<()> {
     if path.exists() {
-        return Err(SkillsSyncError::ManifestAlreadyExists {
+        return Err(SkillSyncError::ManifestAlreadyExists {
             path: path.to_owned(),
         }
         .into());
     }
 
-    std::fs::write(path, INIT_TEMPLATE).map_err(SkillsSyncError::Io)?;
+    std::fs::write(path, INIT_TEMPLATE).map_err(SkillSyncError::Io)?;
 
     eprintln!("Created {}", path.display());
     Ok(())

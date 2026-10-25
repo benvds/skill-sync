@@ -1,4 +1,4 @@
-use skills_sync::github::{
+use skill_sync::github::{
     AuthMethod, GitHubClient, RepoInfo, TreeEntry, TreeResponse,
 };
 use std::sync::Mutex;
@@ -12,7 +12,7 @@ fn discover_token_from_env() {
     // Save and restore original value
     let original = std::env::var("GITHUB_TOKEN").ok();
     std::env::set_var("GITHUB_TOKEN", "test-token-123");
-    let (token, method) = skills_sync::github::discover_token();
+    let (token, method) = skill_sync::github::discover_token();
     // Restore
     match original {
         Some(v) => std::env::set_var("GITHUB_TOKEN", v),
@@ -27,7 +27,7 @@ fn discover_token_empty_env_falls_through() {
     let _lock = ENV_MUTEX.lock().unwrap();
     let original = std::env::var("GITHUB_TOKEN").ok();
     std::env::set_var("GITHUB_TOKEN", "");
-    let (_token, method) = skills_sync::github::discover_token();
+    let (_token, method) = skill_sync::github::discover_token();
     // Restore
     match original {
         Some(v) => std::env::set_var("GITHUB_TOKEN", v),

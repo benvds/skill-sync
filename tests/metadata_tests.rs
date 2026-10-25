@@ -1,4 +1,4 @@
-use skills_sync::metadata::{
+use skill_sync::metadata::{
     read_lock_file, write_lock_file_atomic, LockFile, SkillMeta,
 };
 use tempfile::TempDir;

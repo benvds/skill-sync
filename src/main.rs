@@ -1,15 +1,15 @@
 use clap::Parser;
 use owo_colors::{OwoColorize, Stream};
-use skills_sync::cli::Cli;
-use skills_sync::config::discover_manifest;
-use skills_sync::error::SkillsSyncError;
-use skills_sync::github::{self, AuthMethod};
-use skills_sync::init::run_init;
-use skills_sync::manifest::parse_repo_entry;
-use skills_sync::metadata::{self, lock_path_for_manifest, read_lock_file, LockFile};
-use skills_sync::resolver;
-use skills_sync::sync;
-use skills_sync::manifest;
+use skill_sync::cli::Cli;
+use skill_sync::config::discover_manifest;
+use skill_sync::error::SkillSyncError;
+use skill_sync::github::{self, AuthMethod};
+use skill_sync::init::run_init;
+use skill_sync::manifest::parse_repo_entry;
+use skill_sync::metadata::{self, lock_path_for_manifest, read_lock_file, LockFile};
+use skill_sync::resolver;
+use skill_sync::sync;
+use skill_sync::manifest;
 use std::collections::{HashMap, HashSet};
 
 fn main() {
@@ -32,7 +32,7 @@ fn main() {
     }
 }
 
-fn run(cli: Cli) -> skills_sync::error::Result<()> {
+fn run(cli: Cli) -> skill_sync::error::Result<()> {
     if cli.init {
         let path = std::path::PathBuf::from(".skills.toml");
         return run_init(&path);
@@ -40,7 +40,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
 
     let manifest_path = discover_manifest(cli.config.as_deref())?;
     let content =
-        std::fs::read_to_string(&manifest_path).map_err(SkillsSyncError::Io)?;
+        std::fs::read_to_string(&manifest_path).map_err(SkillSyncError::Io)?;
     let manifest = manifest::parse_and_validate(&content, &manifest_path)?;
 
     // Derive lock file path from manifest path (.skills.toml → .skills.lock)
@@ -65,11 +65,11 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     let sync_token = token.clone();
 
     let client = github::GitHubClient::new(token, auth_method)
-        .map_err(|e| SkillsSyncError::HttpClient(e.to_string()))?;
+        .map_err(|e| SkillSyncError::HttpClient(e.to_string()))?;
 
     // Resolve target directory: global (~/.claude/skills/) or local (.claude/skills/)
     let target_dir_buf: std::path::PathBuf = if cli.global {
-        let home = dirs::home_dir().ok_or_else(|| SkillsSyncError::SyncFailed {
+        let home = dirs::home_dir().ok_or_else(|| SkillSyncError::SyncFailed {
             repo: "--global".to_string(),
             reason: "cannot resolve home directory for --global target".to_string(),
         })?;
@@ -80,7 +80,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
     let target_dir = target_dir_buf.as_path();
 
     // Read consolidated lock file once (returns empty if not found yet)
-    let lock_file = read_lock_file(&lock_path).map_err(SkillsSyncError::Io)?;
+    let lock_file = read_lock_file(&lock_path).map_err(SkillSyncError::Io)?;
 
     // Process each repo from manifest
     let mut all_actions: Vec<resolver::SyncAction> = Vec::new();
@@ -102,8 +102,8 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
             Ok(info) => info,
             Err(e) => {
                 // Rate limit errors fail immediately
-                if let Some(rl) = e.downcast_ref::<SkillsSyncError>() {
-                    if matches!(rl, SkillsSyncError::RateLimited { .. }) {
+                if let Some(rl) = e.downcast_ref::<SkillSyncError>() {
+                    if matches!(rl, SkillSyncError::RateLimited { .. }) {
                         return Err(e);
                     }
                 }
@@ -131,8 +131,8 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
         let tree = match client.get_tree(owner, repo_name, &repo_info.default_branch) {
             Ok(t) => t,
             Err(e) => {
-                if let Some(rl) = e.downcast_ref::<SkillsSyncError>() {
-                    if matches!(rl, SkillsSyncError::RateLimited { .. }) {
+                if let Some(rl) = e.downcast_ref::<SkillSyncError>() {
+                    if matches!(rl, SkillSyncError::RateLimited { .. }) {
                         return Err(e);
                     }
                 }
@@ -204,7 +204,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
 
     // Scan for global orphans (repos removed from manifest entirely)
     // Must happen before dry-run check so dry-run output is complete
-    let lock_file_for_orphans = read_lock_file(&lock_path).map_err(SkillsSyncError::Io)?;
+    let lock_file_for_orphans = read_lock_file(&lock_path).map_err(SkillSyncError::Io)?;
     let global_orphans = sync::scan_orphans(target_dir, &manifest_repos, &lock_file_for_orphans);
 
     // Add global orphan Remove actions to all_actions (skip any already covered by resolver)
@@ -321,7 +321,7 @@ fn run(cli: Cli) -> skills_sync::error::Result<()> {
 
     // Exit non-zero if any repo failed at the API level (separate from sync failures)
     if !failed_repos.is_empty() {
-        return Err(SkillsSyncError::GitHubApi {
+        return Err(SkillSyncError::GitHubApi {
             status: 0,
             message: format!("{} repo(s) failed", failed_repos.len()),
             repo: failed_repos

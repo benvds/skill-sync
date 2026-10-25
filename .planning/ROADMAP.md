@@ -1,4 +1,4 @@
-# Roadmap: skills-sync
+# Roadmap: skill-sync
 
 ## Overview
 
@@ -24,9 +24,9 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Depends on**: Nothing (first phase)
 **Requirements**: MNFST-01, MNFST-02, MNFST-03, MNFST-04, SYNC-05, ERR-01, ERR-02, ERR-05, ERR-06
 **Success Criteria** (what must be TRUE):
-  1. Running `skills-sync --init` produces a documented sample `.skills.toml` in the current directory
-  2. Running `skills-sync` with a valid `.skills.toml` parses and validates all repo entries without panicking
-  3. Running `skills-sync` with an invalid or missing manifest exits with a non-zero code and a human-readable error indicating what went wrong and how to fix it
+  1. Running `skill-sync --init` produces a documented sample `.skills.toml` in the current directory
+  2. Running `skill-sync` with a valid `.skills.toml` parses and validates all repo entries without panicking
+  3. Running `skill-sync` with an invalid or missing manifest exits with a non-zero code and a human-readable error indicating what went wrong and how to fix it
   4. A per-skill `.skills.lock` file written during a simulated install contains source, SHA, and timestamps and is written atomically (via rename)
   5. Tool exits with code 0 when no error occurs and non-zero on any failure
 **Plans**: TBD

@@ -1,4 +1,4 @@
-# Requirements: skills-sync
+# Requirements: skill-sync
 
 **Defined:** 2026-02-28
 **Core Value:** Declarative, zero-friction skill synchronization: run one command and your skills directory matches your manifest.
@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **MNFST-01**: User can define skill repos in a `.skills.toml` manifest using `owner/repo` format
 - [ ] **MNFST-02**: Tool validates repo entries match `^[a-zA-Z0-9._-]+/[a-zA-Z0-9._-]+$` pattern and rejects duplicates
-- [ ] **MNFST-03**: Tool discovers manifest via CWD `.skills.toml` (local), `~/.config/skills-sync/skills.toml` (global), or explicit `--config <path>`
+- [ ] **MNFST-03**: Tool discovers manifest via CWD `.skills.toml` (local), `~/.config/skill-sync/skills.toml` (global), or explicit `--config <path>`
 - [ ] **MNFST-04**: User can generate a documented sample `.skills.toml` via `--init` flag
 
 ### Repository Detection
@@ -79,7 +79,7 @@ Explicitly excluded. Documented to prevent scope creep.
 |---------|--------|
 | Skill dependency resolution | No established convention for skill dependencies; skills are standalone by design |
 | Skill validation/linting | Validation rules are ecosystem-dependent and unstable; trust repo maintainers |
-| Watch mode / auto-sync daemon | File watching is OS-specific, resource-intensive; `skills-sync` is fast enough to run manually |
+| Watch mode / auto-sync daemon | File watching is OS-specific, resource-intensive; `skill-sync` is fast enough to run manually |
 | TUI / web dashboard | Sync tools are used infrequently; invest in excellent `--verbose` and `--dry-run` instead |
 | Multi-agent target support | Purpose-built for SKILL.md convention; "do one thing well" |
 | Deeply nested monorepo scanning | One-level-deep is fast and predictable; deep nesting is an anti-pattern |

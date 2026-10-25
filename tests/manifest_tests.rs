@@ -1,4 +1,4 @@
-use skills_sync::manifest::{parse_and_validate, parse_repo_entry};
+use skill_sync::manifest::{parse_and_validate, parse_repo_entry};
 use std::path::Path;
 
 #[test]

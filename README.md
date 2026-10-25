@@ -1,13 +1,13 @@
-# skills-sync
+# skill-sync
 
 Declarative skill synchronization for Claude Code. One command, your skills directory matches your manifest.
 
 ## Quick Start
 
-1. Install skills-sync (see [Installation](#installation))
-2. Run `skills-sync --init` to generate a `.skills.toml` manifest
+1. Install skill-sync (see [Installation](#installation))
+2. Run `skill-sync --init` to generate a `.skills.toml` manifest
 3. Edit `.skills.toml` to list the skill repos you want
-4. Run `skills-sync` to sync
+4. Run `skill-sync` to sync
 
 Example output on first sync:
 
@@ -31,10 +31,8 @@ cargo install --path .
 ### From release
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/OWNER/skills-sync/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/benvds/skill-sync/main/install.sh | sh
 ```
-
-> Note: Replace `OWNER` with the actual GitHub owner before the first release.
 
 ## Manifest Format
 
@@ -51,7 +49,7 @@ repos = [
 ]
 ```
 
-skills-sync detects the `SKILL.md` at the root and installs the whole repo as one skill.
+skill-sync detects the `SKILL.md` at the root and installs the whole repo as one skill.
 
 ### Monorepo (auto-detect)
 
@@ -64,7 +62,7 @@ repos = [
 ]
 ```
 
-skills-sync scans the repository tree and installs each subdirectory that contains a `SKILL.md` as a separate skill.
+skill-sync scans the repository tree and installs each subdirectory that contains a `SKILL.md` as a separate skill.
 
 ### Subdirectory pin
 
@@ -115,17 +113,17 @@ See the [examples/](examples/) directory for copy-paste starting points:
 
 ## How It Works
 
-skills-sync reads your manifest and queries the GitHub Trees API to detect which skills are present in each listed repository. It compares remote tree SHAs against the local lock file (`.skills.lock`) to determine what needs to be installed, updated, or removed. Skills are fetched via sparse git checkout so only the relevant files are downloaded. The lock file tracks installed state and is updated atomically after each operation.
+skill-sync reads your manifest and queries the GitHub Trees API to detect which skills are present in each listed repository. It compares remote tree SHAs against the local lock file (`.skills.lock`) to determine what needs to be installed, updated, or removed. Skills are fetched via sparse git checkout so only the relevant files are downloaded. The lock file tracks installed state and is updated atomically after each operation.
 
 ## Authentication
 
-skills-sync works unauthenticated but is subject to GitHub's 60 requests/hour rate limit. For development or large manifests, use an authenticated token for 5,000 requests/hour:
+skill-sync works unauthenticated but is subject to GitHub's 60 requests/hour rate limit. For development or large manifests, use an authenticated token for 5,000 requests/hour:
 
 ```sh
 export GITHUB_TOKEN=ghp_your_token_here
 ```
 
-skills-sync also automatically uses the `gh` CLI token if you have [GitHub CLI](https://cli.github.com/) installed and are logged in:
+skill-sync also automatically uses the `gh` CLI token if you have [GitHub CLI](https://cli.github.com/) installed and are logged in:
 
 ```sh
 gh auth login

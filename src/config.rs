@@ -1,13 +1,13 @@
-use crate::error::SkillsSyncError;
+use crate::error::SkillSyncError;
 use std::path::{Path, PathBuf};
 
 const LOCAL_MANIFEST: &str = ".skills.toml";
-const GLOBAL_MANIFEST_DIR: &str = "skills-sync";
+const GLOBAL_MANIFEST_DIR: &str = "skill-sync";
 const GLOBAL_MANIFEST_FILE: &str = "skills.toml";
 
 /// Discover the manifest file from multiple locations.
 ///
-/// Priority: --config override > CWD .skills.toml > global ~/.config/skills-sync/skills.toml
+/// Priority: --config override > CWD .skills.toml > global ~/.config/skill-sync/skills.toml
 pub fn discover_manifest(config_override: Option<&Path>) -> crate::error::Result<PathBuf> {
     discover_manifest_in(Path::new("."), config_override)
 }
@@ -27,7 +27,7 @@ pub fn discover_manifest_in(
             return Ok(path.to_owned());
         }
         searched.push(path.to_owned());
-        return Err(SkillsSyncError::ManifestNotFound { searched }.into());
+        return Err(SkillSyncError::ManifestNotFound { searched }.into());
     }
 
     // 2. CWD local manifest
@@ -48,5 +48,5 @@ pub fn discover_manifest_in(
         searched.push(global);
     }
 
-    Err(SkillsSyncError::ManifestNotFound { searched }.into())
+    Err(SkillSyncError::ManifestNotFound { searched }.into())
 }

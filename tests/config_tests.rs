@@ -1,4 +1,4 @@
-use skills_sync::config::discover_manifest_in;
+use skill_sync::config::discover_manifest_in;
 use tempfile::TempDir;
 
 #[test]

@@ -1,6 +1,6 @@
-use skills_sync::github::{TreeEntry, TreeResponse};
-use skills_sync::metadata::SkillMeta;
-use skills_sync::resolver::{detect_skills, resolve, skill_key, RemoteSkill, RepoSkills, SyncAction};
+use skill_sync::github::{TreeEntry, TreeResponse};
+use skill_sync::metadata::SkillMeta;
+use skill_sync::resolver::{detect_skills, resolve, skill_key, RemoteSkill, RepoSkills, SyncAction};
 use std::collections::HashMap;
 
 /// Helper: create a TreeResponse from (path, type) pairs.

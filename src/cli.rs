@@ -2,7 +2,7 @@ use clap::Parser;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
-#[command(name = "skills-sync", about = "Sync Claude skills from manifest", version)]
+#[command(name = "skill-sync", about = "Sync Claude skills from manifest", version)]
 pub struct Cli {
     /// Generate a sample .skills.toml
     #[arg(long)]
