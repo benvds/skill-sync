@@ -86,7 +86,7 @@ pub fn content_hash(root: &Path) -> Result<String> {
     Ok(format!("{:x}", hash.finalize()))
 }
 
-fn copy_directory(from: &Path, to: &Path) -> Result<()> {
+pub(crate) fn copy_directory(from: &Path, to: &Path) -> Result<()> {
     std::fs::create_dir(to).map_err(SkillSyncError::Io)?;
     for entry in std::fs::read_dir(from).map_err(SkillSyncError::Io)? {
         let entry = entry.map_err(SkillSyncError::Io)?;
@@ -520,6 +520,9 @@ fn apply_one(
         if op.action == Action::Install && exists(&destination) {
             return Err(failure(&destination, "destination appeared after planning"));
         }
+    }
+    if let Some(skill) = replacement {
+        crate::diff::retain_baseline(lock_path, skill)?;
     }
     let backup = staging.path().join("previous");
     let backed_up = matches!(op.action, Action::Update | Action::Remove);

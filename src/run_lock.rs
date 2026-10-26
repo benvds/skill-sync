@@ -13,6 +13,14 @@ pub struct RunLocks {
     held: BTreeMap<String, File>,
 }
 
+impl Drop for RunLocks {
+    fn drop(&mut self) {
+        for file in self.held.values() {
+            let _ = file.unlock();
+        }
+    }
+}
+
 impl RunLocks {
     /// Use one registry per home, independent of the chosen manifest or XDG config.
     pub fn new(home: &Path) -> Self {

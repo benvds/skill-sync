@@ -4,47 +4,92 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'install.sh'
+      - 'tests/test_install.py'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
+  validate:
+    uses: ./.github/workflows/ci.yml
+
   build:
-    name: Build ${{ matrix.platform.name }}
-    runs-on: ${{ matrix.platform.runs-on }}
+    needs: validate
+    name: Build ${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.os }}
     strategy:
+      fail-fast: false
       matrix:
         platform:
-          - name: macOS ARM64
-            runs-on: macos-latest
+          - os: macos-latest
             target: aarch64-apple-darwin
-          - name: Linux x86_64
-            runs-on: ubuntu-latest
+          - os: ubuntu-latest
             target: x86_64-unknown-linux-musl
     steps:
       - uses: actions/checkout@v4
-
+      - name: Check release tag matches the package
+        shell: bash
+        run: |
+          VERSION="v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
+          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "$VERSION" ]]; then
+            echo "Tag must match Cargo.toml ($VERSION)" >&2
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
           target: ${{ matrix.platform.target }}
           args: "--locked --release"
           strip: true
-
       - name: Package binary
         shell: bash
         run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
           TARGET="${{ matrix.platform.target }}"
-          BINARY="skill-sync"
-          ARCHIVE="${BINARY}-${VERSION}-${TARGET}.tar.gz"
-          cp "target/${TARGET}/release/${BINARY}" "${BINARY}"
-          tar -czf "${ARCHIVE}" "${BINARY}"
-          shasum -a 256 "${ARCHIVE}" > "${ARCHIVE}.sha256"
-          echo "ARCHIVE=${ARCHIVE}" >> $GITHUB_ENV
+          ARCHIVE="skill-sync-${VERSION}-${TARGET}.tar.gz"
+          mkdir package
+          cp "target/${TARGET}/release/skill-sync" package/skill-sync
+          tar -czf "$ARCHIVE" -C package skill-sync
+          shasum -a 256 "$ARCHIVE" > "$ARCHIVE.sha256"
+          echo "ARCHIVE=$ARCHIVE" >> "$GITHUB_ENV"
+      - name: Install the exact archive and exercise onboarding
+        run: python3 tests/test_install.py InstallerTests.test_packaged_binary_onboarding -v
+        env:
+          SKILL_SYNC_TEST_ARCHIVE: ${{ github.workspace }}/${{ env.ARCHIVE }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.platform.target }}
+          path: |
+            *.tar.gz
+            *.tar.gz.sha256
+          if-no-files-found: error
 
+  publish:
+    # Manual dispatch validates packaging without publishing a release.
+    if: github.ref_type == 'tag'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release
       - uses: softprops/action-gh-release@v2
         with:
-          files: |
-            ${{ env.ARCHIVE }}
-            ${{ env.ARCHIVE }}.sha256
+          generate_release_notes: true
+          files: release/*
+          fail_on_unmatched_files: true

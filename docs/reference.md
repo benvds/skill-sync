@@ -157,7 +157,7 @@ repos = [
 
 The `@revision` suffix comes after the complete source path. It accepts an exact tag, branch, or full/abbreviated commit SHA. Release versions use their exact Git tag spelling (`@v1.2.3` and `@1.2.3` are different tags). Version ranges such as `^1.2`, `~1.2` and `latest` version selection are not supported; `@latest` only works if the repository actually has a tag or branch named `latest`. Without a revision, sync follows the default branch as before.
 
-Explicit revisions are resolved through GitHub to a full commit SHA before fetching. The checkout and lock record that commit, including when it is older than the current branch head. An unknown revision fails without falling back to the default branch. A full commit SHA is the durable pin: tags and branches can move upstream and are resolved again on each run. The lock tracks installed state, rather than freezing a moving tag. Changing a pin updates the existing installation. Different skills in a repository can use different revisions; overlapping selections of the same skill at conflicting revisions fail before installation.
+Git fetch resolves explicit refs and the default HEAD to full commit SHAs. The checkout and lock record that commit, including when it is older than the current branch head. An unknown revision fails without falling back to the default branch. A full commit SHA is the durable pin: tags and branches can move upstream and are resolved again on each run. The lock tracks installed state, rather than freezing a moving tag. Changing a pin updates the existing installation. Different skills in a repository can use different revisions; overlapping selections of the same skill at conflicting revisions fail before installation.
 
 The implementation follows the explicit Git-ref approach used by [Cargo](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choice-of-commit), [npm](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#git-urls-as-dependencies), and [pip](https://pip.pypa.io/en/stable/topics/vcs-support/#git). The compact suffix preserves existing string manifests. Exact refs avoid introducing a semver range resolver and dependency-update commands; full SHA resolution ensures discovery and checkout use the same snapshot.
 
@@ -181,7 +181,7 @@ installed_at = "2026-10-25T12:00:00Z"
 updated_at = "2026-10-25T12:00:00Z"
 ```
 
-The `sha` tracks the resolved commit for explicit revision pins, or the remote tree for sources following the default branch; `content_hash` covers the installed files and executable bits. An unchanged copy is skipped. Missing copies and newly selected destinations are installed independently. Successful operations update the lock atomically; a failed target does not mark its copy installed and does not discard successful targets' state. A later run retries what is missing.
+The `sha` tracks the resolved commit for Git sources, or the content hash for local sources (older deployment entries may contain remote tree hashes); `content_hash` covers the installed files and executable bits. An unchanged copy is skipped. Missing copies and newly selected destinations are installed independently. Successful operations update the lock atomically; a failed target does not mark its copy installed and does not discard successful targets' state. A later run retries what is missing.
 
 All selected manifests are planned before target changes begin. An unmanaged name collision, duplicate name within a manifest, or modified managed skill blocks the run. Local changes are preserved even with `--force`. To accept an upstream replacement, first move your edited copy to a backup location, then rerun sync; a missing managed copy can be reinstalled safely.
 
@@ -193,7 +193,7 @@ Mutating CLI runs take nonblocking OS advisory locks before reading deployment s
 
 Coordination files live under `~/.cache/skill-sync/run-locks`, independently of `XDG_CONFIG_HOME`, and stay in place after exit. The OS releases held locks when the process exits or crashes. Do not delete coordination files while syncs are running: replacing the file would allow different processes to lock different files. These advisory locks coordinate skill-sync CLI processes using the same home directory; other programs and direct library callers must coordinate their own writes. Filesystems must support OS file locks.
 
-Status and dry-run are read-only snapshots and do not create coordination files or acquire writer locks. A concurrent writer can change the files they inspect; retry the inspection after the writer completes. A mutating sync repeats its own planning while holding locks.
+Status is a read-only snapshot and does not create coordination files or acquire locks. Dry-run never writes manifests, deployment locks or destinations, but remote resolution uses the shared repository cache and its coordination lock. A concurrent writer can change the files they inspect; retry the inspection after the writer completes. A mutating sync repeats its own planning while holding locks.
 
 ## CLI reference
 
@@ -212,7 +212,7 @@ Status and dry-run are read-only snapshots and do not create coordination files 
 | `--force` | Confirm bulk installations and managed removals; never overwrite local edits or unmanaged skills |
 | `--verbose` | Print manifest, lock, scope and resolved target paths |
 
-Dry-run may fetch remote sources into temporary storage to validate the real skill names and files. It does not change destinations, manifests, deployment locks or coordination files.
+Dry-run may fetch remote sources into the persistent repository cache to validate the real skill names and files. It does not change destinations, manifests or deployment locks. Remote previews may populate or evict the repository cache and acquire its coordination lock.
 
 Exit codes:
 
@@ -295,4 +295,70 @@ python3 -m unittest discover -s tests -p 'test_install.py' -v
 Automated tests cover independent copies, shared target deduplication, central/project discovery, custom paths, per-target retries, deletion, local edits, rollback after lock failures, old locks and rebasing project locks. Source tests use local Git repositories and a local API fixture; they verify recursive collections, historical commit and tag pins, conflicting revisions, bulk-install confirmation, and reuse of a checkout for multiple selections at one revision. Tests verify the portable filesystem layout without launching live AI agent sessions.
 
 
-PR CI runs the Rust suite on macOS/Linux stable and Linux Rust 1.89, plus installer tests. Formatting and Clippy run on Linux. Networked public-GitHub smoke tests remain optional; the automated source tests use local Git repositories and local HTTP fixtures. Runtime dependencies are Git, outbound GitHub access for nonempty syncs, and a filesystem with OS advisory-lock support. Building requires Rust 1.89 or newer. Offline status needs none of the network or Git dependencies.
+PR CI runs the Rust suite on macOS/Linux stable and Linux Rust 1.89, plus installer tests. Formatting and Clippy run on Linux. Networked public-GitHub smoke tests remain optional; the automated source tests use local Git repositories and local HTTP fixtures. Runtime dependencies are Git, remote repository access for uncached Git sources, and a filesystem with OS advisory-lock support. Building requires Rust 1.89 or newer. Offline status needs none of the network or Git dependencies.
+
+
+## Pre-v2 source management
+
+These commands are implemented; public-index discovery remains outside this release.
+
+```sh
+skill-sync add 'local:../private-skills' --local --dry-run
+skill-sync add 'local:../private-skills' --local
+skill-sync remove 'local:../private-skills' --local
+skill-sync add 'git+ssh://git@git.example.com/team/skills.git//skills/review#v1' --local
+skill-sync --local --diff
+skill-sync lock --local
+skill-sync --local --frozen --dry-run
+skill-sync --local --frozen
+skill-sync update --local --dry-run
+skill-sync update --local
+```
+
+`add` and `remove` edit exactly one existing manifest, preserving comments and unrelated tables. Select it with `--local`, `--global` or `--config` if discovery finds both scopes. `--agent` explicitly replaces that manifest's agent selection. An identical addition or absent removal is a no-op. Preview returns 2 when an edit is pending; applying an edit returns 0 and does not install or remove copies. Initialization remains a separate `--init` command. Source duplicates use normalized exact selections, including their refs; conflicting overlapping selections fail during sync. External edits between reading and saving are rejected.
+
+Sources accept the existing GitHub shorthand, `local:PATH`, and `git+https://HOST/PATH.git[//SKILL-PATH][#REF]` or `git+ssh://USER@HOST/PATH.git[//SKILL-PATH][#REF]`. The double slash after the repository selects a skill or descendant collection; `#` selects an exact ref for URL sources. GitHub shorthand continues to use `@`. HTTPS and SSH are the remote transport allowlist; HTTP, file, ext transports, URL passwords and embedded HTTPS usernames are rejected. Local paths resolve relative to the manifest, including `..` and absolute paths. Relative local paths are the portable option. Sources may live outside a project; project destinations still cannot escape it. Missing sources fail preparation before target mutation. A selected root containing SKILL.md installs that skill. Otherwise the shared resolver discovers SKILL.md files at every descendant depth, preserving the existing collection rules. Symlinks and special resources are rejected. All installations are independent snapshots with content hashes; local changes are never propagated back to the source.
+
+For additional tools, choose explicit paths with `custom` or distinct `custom:NAME` agent IDs:
+
+```toml
+[sync]
+scope = "project"
+agents = ["codex", "custom:editor", "custom:reviewer"]
+
+[agents."custom:editor"]
+project_dir = ".editor/skills"
+user_dir = "~/.editor/skills"
+
+[agents."custom:reviewer"]
+project_dir = ".reviewer/skills"
+
+[skills]
+repos = ["local:../team-skills"]
+```
+
+Custom IDs have no guessed defaults: provide the selected scope's path. Unknown native IDs remain errors. Canonical path deduplication, ownership, conflict detection and writer locks apply equally to custom targets.
+
+### Portable source locks
+
+`lock` creates `.skills.sources.lock` (or `skills.sources.lock`) beside the manifest. An existing source lock is verified and reused; `update` explicitly resolves current revisions and replaces it. Neither command installs anything. Both support JSON and `--dry-run`; their preview exits 2 when the lock would change. Commit this source lock with the manifest for teammates and CI. Keep `.skills.lock` as the machine's installation ledger. The source lock stores schema version 1, the exact source selections, immutable Git commits, selected relative skill paths, names and file hashes. It contains no target paths or credentials. Absolute local sources remain machine-specific by explicit choice.
+
+`--frozen` requires a matching source lock and verifies every selected skill's content and collection membership. Moving remote refs are ignored in favor of the recorded commits. Local source edits, ref edits, additions, removals, changed skill names and mismatched hashes fail before deployment. Frozen installation uses cached objects offline; missing cached objects require access to fetch the exact locked commit. A missing or corrupt source lock fails with a request to review and regenerate it. Ordinary sync continues to follow moving refs and does not silently rewrite a portable lock.
+
+### Cache and authentication
+
+Bare Git repositories live under `~/.cache/skill-sync/repos`, keyed by repository URL, with immutable commit refs retained for frozen use. A run reuses checkouts for identical repository/ref selections. Normal sync fetches the requested ref again to see upstream changes; frozen sync uses cached commits without fetching when available. Repository integrity checks repair corrupted caches by recreating them and fetching again. Git fetches use the installed credential helpers or SSH agent; GitHub sources additionally honor `GITHUB_TOKEN`, then `gh auth token`. Tokens are passed through a child-only environment header, never stored in URLs, cache configuration or source locks. Git diagnostics intentionally avoid echoing authentication details. SSH host setup remains the user's Git configuration.
+
+`--cache-limit-mib N` caps retained repository data after preparation (default 512 MiB); least recently used repositories are evicted first. Zero removes all cached repositories after staging. The limit covers retained bare repositories; temporary checkouts and in-progress fetches can use additional disk. Eviction may require a later frozen installation to fetch its commit again. Cache readers, repair and eviction share a nonblocking advisory lock; a concurrent cache user causes a retryable error. Offline status never touches this cache.
+
+### File differences and baselines
+
+`--diff` implies dry-run. JSON adds `diffs`; text prints file patches before the operation plan. For each changed installation, `upstream` compares its installed baseline with proposed source files; `local` compares that baseline with the current destination. Before the first baseline is retained, `installed_to_proposed` labels the available two-way comparison. Changed paths include additions, removals, binary summaries and executable-bit differences. Text patches show whole files, with control characters escaped and large content summarized. Patches are bounded previews, not an automatic merge or patch-rebasing mechanism. Conflicts still exit 1 with local files preserved.
+
+Successful installs retain comparison copies under `.skills.baselines/` (or `skills.baselines/`) beside the deployment ledger, keyed by content hash. Do not commit these directories. They contain copies of installed resources, including any private material. Removing them is safe when no sync is running; future previews use the two-way comparison until another installation retains a baseline. JSON also adds `manifest_edits` (path/before/after) and `source_locks` (paths) and `source_resolutions` (resolved source-lock contents) to the version-1 report contract.
+
+## Release validation
+
+PR CI validates macOS ARM64, Linux x86_64 and the minimum Rust toolchain. The release workflow calls the same CI before building, packages both platforms, verifies checksums through the actual installer, and runs personal/project initialization, local-source selection, preview, two-agent installation, idempotence, frozen installation, edit protection and backup/recovery against each packaged binary. Publication waits for all packages and smoke tests, and requires a tag matching Cargo.toml. Distribution-related pull requests and manual dispatch validate packages without publishing. HTTPS uses Rustls so the Linux musl binary does not require system OpenSSL.
+
+A production release and a smoke test of the publicly downloaded assets remain separate from local implementation checks; no release is published just by building this checkout.

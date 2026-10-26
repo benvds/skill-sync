@@ -54,13 +54,35 @@ pub struct Skills {
 
 /// Split an optional Git tag, branch or commit from a source, after its path.
 pub fn split_revision(entry: &str) -> (&str, Option<&str>) {
+    if entry.starts_with("local:") {
+        return (entry, None);
+    }
+    if entry.starts_with("git+") {
+        return entry
+            .rsplit_once('#')
+            .map(|(s, r)| (s, Some(r)))
+            .unwrap_or((entry, None));
+    }
     match entry.split_once('@') {
         Some((source, revision)) => (source, Some(revision)),
         None => (entry, None),
     }
 }
 
-fn valid_revision(revision: &str) -> bool {
+pub fn normalize_source(entry: &str) -> String {
+    let (source, revision) = split_revision(entry.trim());
+    if source.starts_with("local:") {
+        return source.to_owned();
+    }
+    let source = source.trim_end_matches('/');
+    match revision {
+        Some(revision) if source.starts_with("git+") => format!("{source}#{revision}"),
+        Some(revision) => format!("{source}@{revision}"),
+        None => source.to_owned(),
+    }
+}
+
+pub(crate) fn valid_revision(revision: &str) -> bool {
     !revision.is_empty()
         && !revision.starts_with('-')
         && !revision.contains("..")
@@ -74,6 +96,10 @@ fn valid_revision(revision: &str) -> bool {
         && revision
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || "._-/+".contains(c))
+}
+
+pub(crate) fn valid_github_source(source: &str) -> bool {
+    REPO_PATTERN.is_match(source) && !source.split('/').any(|part| part == "." || part == "..")
 }
 
 /// Parse a manifest repo entry into (owner, repo_name, optional subdirectory).
@@ -155,25 +181,13 @@ pub fn parse_and_validate(content: &str, path: &Path) -> crate::error::Result<Ma
         .skills
         .repos
         .into_iter()
-        .map(|r| {
-            let (source, revision) = split_revision(r.trim());
-            let source = source.trim_end_matches('/');
-            match revision {
-                Some(revision) => format!("{source}@{revision}"),
-                None => source.to_string(),
-            }
-        })
+        .map(|r| normalize_source(&r))
         .collect();
 
     // Step 5: Validate repo format
     for repo in &manifest.skills.repos {
-        let (source, revision) = split_revision(repo);
-        if !REPO_PATTERN.is_match(source)
-            || source.split('/').any(|part| part == "." || part == "..")
-            || revision.is_some_and(|revision| !valid_revision(revision))
-        {
-            return Err(SkillSyncError::InvalidRepo { repo: repo.clone() }.into());
-        }
+        crate::sources::parse(repo)
+            .map_err(|_| SkillSyncError::InvalidRepo { repo: repo.clone() })?;
     }
 
     // Step 6: Check for duplicates

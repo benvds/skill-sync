@@ -15,6 +15,10 @@ pub struct Report {
     pub manifests: Vec<ManifestReport>,
     pub errors: Vec<String>,
     pub created: Option<PathBuf>,
+    pub manifest_edits: Vec<crate::edit::ManifestEdit>,
+    pub diffs: Vec<crate::diff::SkillDiff>,
+    pub source_locks: Vec<PathBuf>,
+    pub source_resolutions: Vec<crate::sources::SourceLock>,
 }
 
 impl Report {
@@ -29,6 +33,10 @@ impl Report {
             manifests: Vec::new(),
             errors: Vec::new(),
             created: None,
+            manifest_edits: Vec::new(),
+            diffs: Vec::new(),
+            source_locks: Vec::new(),
+            source_resolutions: Vec::new(),
         }
     }
 }

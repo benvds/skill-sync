@@ -4,3 +4,5 @@
 .codex/skills/
 
 __pycache__/
+.skills.baselines/
+skills.baselines/

@@ -2,17 +2,17 @@ use clap::Parser;
 use skill_sync::{
     agents,
     cli::Cli,
+    cli::Command,
     config,
     deployment::DeploymentLock,
-    engine::{self, PreparedSources},
+    engine,
     error::{Result, SkillSyncError},
-    github::{self, AuthMethod},
     init,
     manifest::{self, Scope},
     metadata::lock_path_for_manifest,
     output::{ManifestReport, Report},
     run_lock::RunLocks,
-    status,
+    sources, status,
 };
 use std::collections::BTreeMap;
 
@@ -25,7 +25,7 @@ fn main() {
                 .build(),
         )
     }));
-    let cli = match Cli::try_parse() {
+    let mut cli = match Cli::try_parse() {
         Ok(cli) => cli,
         Err(error) => {
             if error.use_stderr() && std::env::args_os().any(|arg| arg == "--json") {
@@ -39,16 +39,17 @@ fn main() {
             error.exit();
         }
     };
-    let mut report = Report::new(
-        if cli.command.is_some() {
-            "status"
-        } else if cli.init {
-            "init"
-        } else {
-            "sync"
-        },
-        cli.dry_run,
-    );
+    cli.dry_run |= cli.diff;
+    let name = match &cli.command {
+        Some(Command::Status) => "status",
+        Some(Command::Add { .. }) => "add",
+        Some(Command::Remove { .. }) => "remove",
+        Some(Command::Lock) => "lock",
+        Some(Command::Update) => "update",
+        None if cli.init => "init",
+        None => "sync",
+    };
+    let mut report = Report::new(name, cli.dry_run);
     match run(&cli, &mut report) {
         Ok(pending) => {
             report.pending_changes = pending;
@@ -82,7 +83,21 @@ fn emit_json(report: &Report) {
 }
 
 fn run(cli: &Cli, report: &mut Report) -> Result<bool> {
-    let local_status = cli.command.is_some();
+    let local_status = matches!(cli.command, Some(Command::Status));
+    let source_lock_command = matches!(cli.command, Some(Command::Lock | Command::Update));
+    if cli.command.is_some() && cli.init {
+        return Err(
+            SkillSyncError::Config("--init cannot be combined with a subcommand".into()).into(),
+        );
+    }
+    if cli.frozen && matches!(cli.command, Some(Command::Update)) {
+        return Err(
+            SkillSyncError::Config("update cannot be combined with --frozen".into()).into(),
+        );
+    }
+    if cli.diff && cli.command.is_some() {
+        return Err(SkillSyncError::Config("--diff is a sync preview option".into()).into());
+    }
     if local_status && (cli.init || cli.dry_run || cli.force) {
         return Err(SkillSyncError::Config(
             "status cannot be combined with --init, --dry-run or --force".into(),
@@ -156,14 +171,96 @@ fn run(cli: &Cli, report: &mut Report) -> Result<bool> {
         )
         .into());
     }
-    let mut github_auth = None;
+    if let Some(Command::Add { source } | Command::Remove { source }) = &cli.command {
+        if locations.len() != 1 {
+            return Err(SkillSyncError::Config(
+                "select one manifest with --local, --global or --config for add/remove".into(),
+            )
+            .into());
+        }
+        let path = agents::absolute_path(&locations[0].0, &cwd)?;
+        if !cli.dry_run {
+            run_locks.acquire("manifest", &lock_path_for_manifest(&path))?;
+        }
+        let edit = skill_sync::edit::preview(
+            &path,
+            source,
+            matches!(cli.command, Some(Command::Remove { .. })),
+            &cli.agents,
+        )?;
+        let changed = edit.before != edit.after;
+        if !cli.json {
+            println!(
+                "{}: {}",
+                if changed {
+                    "Manifest edit"
+                } else {
+                    "Unchanged"
+                },
+                path.display()
+            );
+            if cli.dry_run {
+                print!("{}", edit.after);
+            }
+        }
+        if !cli.dry_run {
+            skill_sync::edit::apply(&edit)?;
+        }
+        report.manifest_edits.push(edit);
+        return Ok(cli.dry_run && changed);
+    }
+    let mut prepared_locks = Vec::new();
     let mut jobs = Vec::new();
     let mut claimed_targets = BTreeMap::new();
     let mut skill_names = BTreeMap::new();
     for (path, default_scope) in locations {
         let path = agents::absolute_path(&path, &cwd)?;
+        if !local_status && !cli.dry_run {
+            run_locks.acquire("manifest", &lock_path_for_manifest(&path))?;
+        }
         let content = std::fs::read_to_string(&path).map_err(SkillSyncError::Io)?;
         let manifest = manifest::parse_and_validate(&content, &path)?;
+        if source_lock_command {
+            let frozen = cli.frozen
+                || (matches!(cli.command, Some(Command::Lock))
+                    && sources::lock_path(&path).exists());
+            let sources = sources::prepare(
+                &manifest,
+                &path,
+                &home,
+                frozen,
+                u64::from(cli.cache_limit_mib) * 1024 * 1024,
+            )?;
+
+            let portable_path = sources::lock_path(&path);
+            let prepared = sources;
+            let changed =
+                sources::SourceLock::read(&portable_path).ok().as_ref() != Some(&prepared.lock);
+            report.pending_changes |= changed;
+            report.source_locks.push(portable_path.clone());
+            report.source_resolutions.push(prepared.lock.clone());
+            if !cli.json {
+                println!(
+                    "{}: {}",
+                    if changed {
+                        "Source lock update"
+                    } else {
+                        "Source lock unchanged"
+                    },
+                    portable_path.display()
+                );
+            }
+            if cli.dry_run && changed && !cli.json {
+                println!(
+                    "{}",
+                    toml::to_string_pretty(&prepared.lock)
+                        .map_err(|e| SkillSyncError::Config(e.to_string()))?
+                );
+            }
+            prepared_locks.push((portable_path, prepared.lock));
+            continue;
+        }
+
         let mut scope = if cli.global {
             Scope::User
         } else if cli.local {
@@ -226,7 +323,7 @@ fn run(cli: &Cli, report: &mut Report) -> Result<bool> {
             DeploymentLock::read(&lock_path, &legacy_target).map_err(SkillSyncError::Io)?;
         lock.bind_scope(scope, path.parent().unwrap())
             .map_err(SkillSyncError::Io)?;
-        if !local_status && !cli.dry_run {
+        if !local_status && !source_lock_command && !cli.dry_run {
             for target in targets
                 .iter()
                 .chain(lock.installations.iter().map(|entry| &entry.target))
@@ -284,23 +381,16 @@ fn run(cli: &Cli, report: &mut Report) -> Result<bool> {
             });
             continue;
         }
-        // Empty manifests need no HTTP client, credentials, or Git access.
-        let sources = if manifest.skills.repos.is_empty() {
-            None
-        } else {
-            let (token, auth) = github_auth.get_or_insert_with(github::discover_token);
-            if matches!(auth, AuthMethod::Unauthenticated) {
-                eprintln!("warning: running unauthenticated (GitHub rate limits apply)");
-            }
-            let client = github::GitHubClient::new(token.clone(), auth.clone())
-                .map_err(|e| SkillSyncError::HttpClient(e.to_string()))?;
-            Some(PreparedSources::fetch(
-                &manifest,
-                &client,
-                token.as_deref(),
-            )?)
-        };
-        let skills = sources.as_ref().map(|s| s.skills.as_slice()).unwrap_or(&[]);
+        let frozen = cli.frozen
+            || (matches!(cli.command, Some(Command::Lock)) && sources::lock_path(&path).exists());
+        let sources = sources::prepare(
+            &manifest,
+            &path,
+            &home,
+            frozen,
+            u64::from(cli.cache_limit_mib) * 1024 * 1024,
+        )?;
+        let skills = sources.skills.as_slice();
         for skill in skills {
             if let Some(other) = skill_names.insert(skill.directory.clone(), path.clone()) {
                 eprintln!(
@@ -312,6 +402,52 @@ fn run(cli: &Cli, report: &mut Report) -> Result<bool> {
             }
         }
         let plan = engine::plan(skills, &targets, &lock);
+        if cli.diff {
+            for op in &plan.operations {
+                let current = op.previous.as_ref().map(|p| op.target.join(&p.directory));
+                let baseline = op
+                    .previous
+                    .as_ref()
+                    .and_then(|p| p.content_hash.as_ref())
+                    .filter(|hash| hash.len() == 64 && hash.bytes().all(|b| b.is_ascii_hexdigit()))
+                    .map(|hash| skill_sync::diff::baseline_root(&lock_path).join(hash));
+                let desired = op.desired.map(|i| skills[i].path.as_path());
+                let comparisons = if baseline.as_ref().is_some_and(|p| p.exists()) {
+                    vec![
+                        ("upstream", baseline.as_deref(), desired),
+                        ("local", baseline.as_deref(), current.as_deref()),
+                    ]
+                } else {
+                    vec![("installed_to_proposed", current.as_deref(), desired)]
+                };
+                for (comparison, before, after) in comparisons {
+                    let files = skill_sync::diff::compare(before, after)?;
+                    if !files.is_empty() {
+                        if !cli.json {
+                            println!("{} {} ({comparison})", op.skill, op.target.display());
+                            for file in &files {
+                                println!(
+                                    "{}{}\n{}",
+                                    file.file,
+                                    if file.mode_changed {
+                                        " (executable mode changed)"
+                                    } else {
+                                        ""
+                                    },
+                                    file.patch
+                                );
+                            }
+                        }
+                        report.diffs.push(skill_sync::diff::SkillDiff {
+                            skill: op.skill.clone(),
+                            target: op.target.clone(),
+                            comparison,
+                            files,
+                        });
+                    }
+                }
+            }
+        }
         if !cli.json {
             for op in &plan.operations {
                 println!("{:?}: {} -> {}", op.action, op.skill, op.target.display());
@@ -339,6 +475,14 @@ fn run(cli: &Cli, report: &mut Report) -> Result<bool> {
     if local_status {
         return Ok(report.pending_changes);
     }
+    if source_lock_command {
+        if !cli.dry_run {
+            for (path, lock) in prepared_locks {
+                lock.write(&path)?;
+            }
+        }
+        return Ok(cli.dry_run && report.pending_changes);
+    }
     // All manifests are planned before the first target is changed.
     let conflicts: Vec<_> = jobs
         .iter()
@@ -357,7 +501,7 @@ fn run(cli: &Cli, report: &mut Report) -> Result<bool> {
     }
     let mut errors = Vec::new();
     for (index, (lock_path, targets, mut lock, sources, plan)) in jobs.into_iter().enumerate() {
-        let skills = sources.as_ref().map(|s| s.skills.as_slice()).unwrap_or(&[]);
+        let skills = sources.skills.as_slice();
         let mut operation_index = 0;
         if let Err(err) = engine::apply_with_observer(
             &plan,

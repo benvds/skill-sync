@@ -76,11 +76,11 @@ V1 distribution targets are macOS ARM64 and Linux x86_64. Cargo source installat
 
 ### Explicit limits
 
-The deployment lock is an installation ledger, not a dependency-resolution lock. Moving tags and branches are resolved on every sync. Full SHA suffixes provide source pins today. Status cannot validate changed manifest refs or remote collection membership from local state alone.
+The deployment lock remains an installation ledger. The separate portable source lock freezes Git commits and skill contents for `--frozen` installation; ordinary sync continues to resolve moving refs. Status cannot validate changed manifest refs or remote collection membership from local state alone.
 
-Local edits are detected and preserved by stopping replacement; V1 does not merge them. Sources remain GitHub-only. Copy mode, selected native targets and compatibility behavior remain supported. Read-only inspections are snapshots and may race a concurrent writer; advisory coordination applies to CLI writers using the same home, not arbitrary filesystem tools.
+Local edits are detected and preserved by stopping replacement; V1 does not merge them. Sources support GitHub shorthand, local directories, HTTPS Git and SSH Git. Additional tools use explicit named custom destinations. Copy mode, selected native targets and compatibility behavior remain supported. Read-only inspections are snapshots and may race a concurrent writer; advisory coordination applies to CLI writers using the same home, not arbitrary filesystem tools.
 
-Candidate follow-ups include local sources, manifest add/remove helpers, update diffs, caching and a portable source lock with frozen installation. These require separate acceptance criteria and are not silently added to the V1 release gate.
+The six terminal follow-ups are implemented with acceptance coverage for relative local sources, comment-preserving edits, baseline file diffs, cache reuse/repair/eviction, portable frozen locks, and additional Git transports/custom targets. See the reference for their contracts and the roadmap for delivery status.
 
 Operational contract: [reference](reference.md). Follow-up priorities: [roadmap](ROADMAP.md#after-the-v1-baseline).
 
@@ -147,7 +147,7 @@ The egui version and minimum Rust requirement must be selected when implementati
 
 Release readiness is demonstrated by a fresh-install walkthrough, a project walkthrough, automated regression results on supported platforms, and a documented recovery example. These are release checks, not claims about adoption or measured user outcomes.
 
-Before V2 implementation, decide the supported provider access method and caching terms. Before V3 implementation, decide desktop packaging and extract shared application services from terminal-specific prompting/output. Frozen locks and general Git transports remain separately scoped follow-ups; no milestone implies they already exist.
+Before V2 implementation, decide the supported provider access method and caching terms. Before V3 implementation, decide desktop packaging and extract shared application services from terminal-specific prompting/output. Portable frozen locks and HTTPS/SSH transports are implemented terminal extensions; index integration remains excluded.
 
 ## Sources
 
