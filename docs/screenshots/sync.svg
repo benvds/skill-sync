@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="352" viewBox="0 0 1100 352" role="img" aria-labelledby="title">
+<title id="title">skill-sync / preview and install</title>
+<rect width="1100" height="352" rx="12" fill="#101827"/>
+<path d="M0 48H1100" stroke="#334155"/>
+<g fill="#64748b"><circle cx="25" cy="24" r="5"/><circle cx="43" cy="24" r="5"/><circle cx="61" cy="24" r="5"/></g>
+<text x="88" y="30" fill="#cbd5e1" font-family="monospace" font-size="16">skill-sync / preview and install</text>
+<text xml:space="preserve" font-family="'DejaVu Sans Mono', Menlo, Consolas, monospace" font-size="17"><tspan x="28" y="79" fill="#a7f3d0">$ skill-sync --local --dry-run</tspan><tspan x="28" y="102" fill="#e2e8f0">Install: local:team-skills/review -&gt; ~/demo/.agents/skills</tspan><tspan x="28" y="125" fill="#e2e8f0">Install: local:team-skills/review -&gt; ~/demo/.claude/skills</tspan><tspan x="28" y="148" fill="#e2e8f0"></tspan><tspan x="28" y="171" fill="#a7f3d0">$ skill-sync --local</tspan><tspan x="28" y="194" fill="#e2e8f0">Install: local:team-skills/review -&gt; ~/demo/.agents/skills</tspan><tspan x="28" y="217" fill="#e2e8f0">Install: local:team-skills/review -&gt; ~/demo/.claude/skills</tspan><tspan x="28" y="240" fill="#e2e8f0">Applied: Install local:team-skills/review -&gt; ~/demo/.agents/skills</tspan><tspan x="28" y="263" fill="#e2e8f0">Applied: Install local:team-skills/review -&gt; ~/demo/.claude/skills</tspan><tspan x="28" y="286" fill="#e2e8f0"></tspan><tspan x="28" y="309" fill="#a7f3d0">$ skill-sync --local</tspan><tspan x="28" y="332" fill="#e2e8f0">everything up to date (2 copies)</tspan></text>
+</svg>
