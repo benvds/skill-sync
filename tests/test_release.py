@@ -37,7 +37,13 @@ class ReleaseTests(unittest.TestCase):
         shutil.copyfile(ROOT / "install.sh", self.root / "install.sh")
         shutil.copyfile(ROOT / ".gitignore", self.root / ".gitignore")
         (self.root / "tests").mkdir()
-        (self.root / "tests/test_validation.py").write_text("import unittest\n")
+        (self.root / "tests/test_validation.py").write_text(
+            "import sys\nimport unittest\n"
+            "sys.path.insert(0, 'scripts')\n"
+            "from release import version_files\n\n"
+            "class ValidationTests(unittest.TestCase):\n"
+            "    def test_versions_agree(self):\n"
+            "        version_files()\n")
         self.bin = Path(self.temp.name) / "bin"
         self.bin.mkdir()
         cargo = self.bin / "cargo"
@@ -65,7 +71,10 @@ class ReleaseTests(unittest.TestCase):
     def test_bump_commit_and_annotated_tag_keep_dependencies_intact(self):
         old_lock = (self.root / "Cargo.lock").read_text()
         target = release.next_version(self.current, "minor")
-        self.assert_ok(self.script("minor"))
+        result = self.script("minor")
+        self.assert_ok(result)
+        # Older Python accepts empty suites; require actual validation everywhere.
+        self.assertIn("Ran 1 test", result.stderr)
         self.assert_ok(self.script("--check", "--tag", "v" + target))
         self.assertEqual(self.git("status", "--porcelain"), "")
         self.assertEqual(self.git("cat-file", "-t", "v" + target), "tag")
