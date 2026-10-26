@@ -1,6 +1,6 @@
 # skill-sync roadmap
 
-Updated: 2026-10-25. Product milestones describe delivery order, not promised dates. The current package version is `0.1.0`.
+Updated: 2026-10-25. Product milestones describe delivery order, not promised dates. The current package version is `1.0.0`.
 
 Build a dependable terminal workflow first. Add public-index discovery to that workflow, then expose the same behavior in an egui desktop app.
 

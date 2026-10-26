@@ -36,7 +36,7 @@ The installer verifies the archive's SHA-256 checksum before replacing an existi
 Choose a release or installation directory:
 
 ```sh
-sh install-skill-sync.sh --version v0.1.0 --install-dir "$HOME/.local/bin"
+sh install-skill-sync.sh --version v1.0.0 --install-dir "$HOME/.local/bin"
 # Environment alternatives: SKILL_SYNC_VERSION and INSTALL_DIR
 ```
 
@@ -146,7 +146,7 @@ Create your manifest, choose the agents you use, and run `skill-sync --dry-run`.
 - [Product requirements](docs/PRD.md): scope and acceptance criteria.
 - [Roadmap](docs/ROADMAP.md): terminal management in v1, public-index browsing in v2, and an egui desktop app in v3.
 
-The package is currently `0.1.0`. The roadmap's v1, v2 and v3 describe planned product milestones; the browser and GUI are not implemented.
+The package is currently `1.0.0`. The roadmap's v1, v2 and v3 describe planned product milestones; the browser and GUI are not implemented.
 
 ## Develop
 

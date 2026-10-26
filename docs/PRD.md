@@ -2,7 +2,7 @@
 
 Status: proposed product direction, replacing the original PRD. Updated: 2026-10-25.
 
-This document separates implemented behavior from future requirements. Version numbers below are product milestones; the current Cargo package is `0.1.0`.
+This document separates implemented behavior from future requirements. Version numbers below are product milestones; the current Cargo package is `1.0.0`.
 
 ## Product decision
 
