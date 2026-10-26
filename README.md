@@ -8,6 +8,18 @@ skill-sync puts those installation choices in a TOML manifest. Run one command t
 
 It installs [Agent Skills](https://agentskills.io/specification) into the directories your agents already read. It uses independent copies, so editing one installation does not change another.
 
+## In the terminal
+
+<!-- screenshots:start -->
+### Preview and install
+
+![Terminal showing a local preview and installation for Codex and Claude Code](docs/screenshots/sync.svg)
+
+### Detect local edits
+
+![Terminal showing offline status after editing an installed skill](docs/screenshots/status.svg)
+<!-- screenshots:end -->
+
 ## Install
 
 Prebuilt releases support **macOS Apple Silicon** and **Linux x86_64**. You need Git for syncing remote sources; you do not need Node.js or a Rust toolchain to run the binary.
@@ -142,7 +154,33 @@ The package is currently `0.1.0`. The roadmap's v1, v2 and v3 describe planned p
 cargo fmt --all --check
 cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
-python3 -m unittest discover -s tests -p 'test_install.py' -v
+python3 -m unittest discover -s tests -p 'test_*.py' -v
+python3 scripts/release.py --check
+python3 scripts/screenshots.py --check
 ```
 
 CI checks macOS and Linux, with a separate minimum-Rust check. Source tests use local Git and HTTP fixtures. Optional public-GitHub smoke tests are described in the [reference](docs/reference.md#examples-and-development).
+
+### Refresh README screenshots
+
+```sh
+python3 scripts/screenshots.py
+```
+
+This builds the current CLI and captures preview, installation and local-edit status from a temporary project with local skill fixtures. It writes SVG terminal screenshots to `docs/screenshots/` and updates the marked README gallery. Captures use an isolated home, require no network, and replace temporary paths with `~/demo`. Commit the images with CLI output changes; CI uses `--check` to detect stale captures. Python 3.9 or newer is required for the development scripts.
+
+### Release a version
+
+Start from a clean branch containing the latest `origin/main` commits:
+
+```sh
+git fetch origin
+git merge --ff-only origin/main
+python3 scripts/release.py patch --dry-run
+python3 scripts/release.py patch
+# Or select minor, major, or an explicit version such as 0.2.0.
+```
+
+The release script updates `Cargo.toml`, this package's `Cargo.lock` entry, and current-version references in the README, PRD and roadmap. The CLI version and HTTP user agents already read Cargo's package version. It refreshes screenshots, runs formatting, Rust tests, Clippy and Python regression checks, then commits the release and creates an annotated `vX.Y.Z` tag. It refuses existing tags and uncommitted changes. A failed check leaves the bumped files for review without creating a commit or tag. Product milestones and dependency versions are independent of the package version.
+
+Push the branch and tag using the command printed by the script, or pass `--push` to publish them atomically to `origin`. Pushing the tag triggers the existing macOS/Linux release workflow, which gates publication on CI, package checks and installer smoke tests. Without `--push`, everything stays local. CI also checks version consistency with `python3 scripts/release.py --check` and verifies that release tags match the package.

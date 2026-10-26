@@ -9,6 +9,10 @@ on:
       - '.github/workflows/**'
       - 'install.sh'
       - 'tests/test_install.py'
+      - 'tests/test_release.py'
+      - 'tests/test_screenshots.py'
+      - 'scripts/release.py'
+      - 'scripts/screenshots.py'
       - 'Cargo.toml'
       - 'Cargo.lock'
   workflow_dispatch:
@@ -41,11 +45,12 @@ jobs:
       - name: Check release tag matches the package
         shell: bash
         run: |
-          VERSION="v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
-          if [[ "$GITHUB_REF_TYPE" == tag && "$GITHUB_REF_NAME" != "$VERSION" ]]; then
-            echo "Tag must match Cargo.toml ($VERSION)" >&2
-            exit 1
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            python3 scripts/release.py --check --tag "$GITHUB_REF_NAME"
+          else
+            python3 scripts/release.py --check
           fi
+          VERSION="v$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
       - uses: houseabsolute/actions-rust-cross@v1
         with:

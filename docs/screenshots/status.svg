@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="168" viewBox="0 0 1100 168" role="img" aria-labelledby="title">
+<title id="title">skill-sync / local edit detection</title>
+<rect width="1100" height="168" rx="12" fill="#101827"/>
+<path d="M0 48H1100" stroke="#334155"/>
+<g fill="#64748b"><circle cx="25" cy="24" r="5"/><circle cx="43" cy="24" r="5"/><circle cx="61" cy="24" r="5"/></g>
+<text x="88" y="30" fill="#cbd5e1" font-family="monospace" font-size="16">skill-sync / local edit detection</text>
+<text xml:space="preserve" font-family="'DejaVu Sans Mono', Menlo, Consolas, monospace" font-size="17"><tspan x="28" y="79" fill="#a7f3d0">$ skill-sync status --local</tspan><tspan x="28" y="102" fill="#e2e8f0">Local status: ~/demo/.skills.toml (upstream not checked)</tspan><tspan x="28" y="125" fill="#e2e8f0">Modified: ~/demo/.agents/skills/review</tspan><tspan x="28" y="148" fill="#e2e8f0">Unchanged: ~/demo/.claude/skills/review</tspan></text>
+</svg>
