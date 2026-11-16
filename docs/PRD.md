@@ -57,10 +57,10 @@ V1 keeps the existing product shape: edit a manifest, preview changes, sync thro
 | V1-08 | Versioned JSON for plans, outcomes, status, init and errors | Implemented |
 | V1-09 | Prevent concurrent CLI writes to the same manifest or target, including deselected targets | Implemented |
 | V1-10 | Recoverable writes and independently retryable target failures | Existing |
-| V1-11 | Binary installer with version/directory options, checksum verification and atomic replacement | Implemented; requires a new release containing checksum sidecars |
+| V1-11 | Homebrew tap formula and binary installer with version/directory options, checksum verification and atomic replacement | Formula added; tap publication and owner verification remain separate |
 | V1-12 | CI on supported OS families, minimum Rust, formatting, Clippy and installer regression tests | Workflow added; hosted CI must pass before release |
 
-V1 distribution targets are macOS ARM64 and Linux x86_64. Cargo source installation requires Rust 1.89 or newer. Additional package managers and architectures are optional after their install paths are tested.
+V1 distribution targets are macOS ARM64 and Linux x86_64. Homebrew and Cargo source installation are additional routes; Cargo requires Rust 1.89 or newer. The Homebrew tap is documented in [Homebrew tap maintenance](homebrew-maintenance.md). More package managers and architectures are optional after their install paths are tested.
 
 ### Acceptance criteria
 
