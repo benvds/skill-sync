@@ -22,7 +22,30 @@ It installs [Agent Skills](https://agentskills.io/specification) into the direct
 
 ## Install
 
-Prebuilt releases support **macOS Apple Silicon** and **Linux x86_64**. You need Git for syncing remote sources; you do not need Node.js or a Rust toolchain to run the binary.
+Prebuilt releases support **macOS Apple Silicon** and **Linux x86_64**. Git is required at runtime for syncing remote sources; you do not need Node.js or a Rust toolchain to run a released binary. Other platforms can build from source.
+
+### Homebrew
+
+Homebrew installs are supported on macOS Apple Silicon and on Linux x86_64 using Homebrew on Linux.
+
+```sh
+brew install benvds/tap/skill-sync
+skill-sync --version
+```
+
+The formula lives in the owner-maintained `benvds/homebrew-tap` tap. It downloads the versioned release archive, verifies its SHA-256 checksum, puts `skill-sync` on `PATH`, and installs Git as a runtime dependency; no Rust toolchain is needed.
+
+Upgrade or remove it:
+
+```sh
+brew upgrade skill-sync
+brew uninstall skill-sync
+brew untap benvds/tap   # Optional, after uninstalling
+```
+
+The tap and formula are maintained separately from the CLI. See [Homebrew maintenance](docs/homebrew-maintenance.md#publication-and-verification-status) for publication status, owner setup, release updates and recovery.
+
+### Installer
 
 Download the installer and install the latest release:
 
@@ -156,6 +179,7 @@ cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 python3 scripts/release.py --check
+python3 scripts/homebrew.py --check
 python3 scripts/screenshots.py --check
 ```
 
@@ -184,3 +208,5 @@ python3 scripts/release.py patch
 The release script updates `Cargo.toml`, this package's `Cargo.lock` entry, and current-version references in the README, PRD and roadmap. The CLI version and HTTP user agents already read Cargo's package version. It refreshes screenshots, runs formatting, Rust tests, Clippy and Python regression checks, then commits the release and creates an annotated `vX.Y.Z` tag. It refuses existing tags and uncommitted changes. A failed check leaves the bumped files for review without creating a commit or tag. Product milestones and dependency versions are independent of the package version.
 
 Push the branch and tag using the command printed by the script, or pass `--push` to publish them atomically to `origin`. Pushing the tag triggers the existing macOS/Linux release workflow, which gates publication on CI, package checks and installer smoke tests. Without `--push`, everything stays local. CI also checks version consistency with `python3 scripts/release.py --check` and verifies that release tags match the package.
+
+After the release assets are published, update the Homebrew tap with `python3 scripts/homebrew.py --update --tag vX.Y.Z`. See [Homebrew maintenance](docs/homebrew-maintenance.md) for the tap repository, checksum review, validation and recovery steps.

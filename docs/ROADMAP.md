@@ -15,10 +15,10 @@ Goal: a developer can install skill-sync, declare personal/project skills, inspe
 | 1A. Declarative installation | Scopes, agent destinations, copies, recursive GitHub collections, exact refs, ownership and recovery | Existing baseline |
 | 1B. Inspection and automation | Offline `status`/`doctor`, JSON plans/results/errors, accurate partial outcomes | Implemented in this change |
 | 1C. Writer coordination | Manifest and current/previous target locks; canonical paths; automatic release after crash | Implemented in this change |
-| 1D. Distribution and checks | Version/directory installer options, checksum sidecars, atomic replacement, PR CI, updated docs | Implemented; release gated on reusable CI and packaged onboarding smoke checks |
-| 1E. V1 release validation | Run supported-platform CI, publish checksummed assets, test the published installer and documented onboarding | Release checks automated; publishing and public-download verification remain separate |
+| 1D. Distribution and checks | Homebrew tap formula, version/directory installer options, checksum sidecars, atomic replacement, PR CI, updated docs | Homebrew formula added; tap publication remains an owner action |
+| 1E. V1 release validation | Run supported-platform CI, publish checksummed assets, test the published installer and documented onboarding | Release checks automated; publishing, tap setup and public-download verification remain separate |
 
-Keep V1 close to the present scope. A binary installer and Cargo are enough initial installation routes. Homebrew, more architectures and shell completions are optional improvements once supported and tested.
+Keep V1 close to the present scope. The binary installer, Homebrew tap and Cargo are the initial installation routes; [Homebrew maintenance](homebrew-maintenance.md) covers tap setup. More architectures and shell completions are optional improvements once supported and tested.
 
 Exit V1 when the PRD's V1 acceptance criteria pass on macOS and Linux and the published artifacts pass an installation smoke test. Publishing a release remains a separate action.
 

@@ -70,6 +70,7 @@ def validate():
     run("cargo", "test", "--locked")
     run("cargo", "clippy", "--locked", "--all-targets", "--", "-D", "warnings")
     run("sh", "-n", "install.sh")
+    run(sys.executable, "scripts/homebrew.py", "--check")
     env = dict(os.environ, SKILL_SYNC_TEST_BINARY=str(ROOT / "target/debug/skill-sync"))
     run(sys.executable, "-m", "unittest", "discover", "-s", "tests", "-p", "test_*.py", "-v", env=env)
 
@@ -123,6 +124,8 @@ def main():
     run("git", "commit", "-m", f"Release {tag}")
     run("git", "tag", "-a", tag, "-m", f"Release {tag}")
     print(f"Created {tag}.", flush=True)
+    print(f"After the release assets are published, update the Homebrew tap with: "
+          f"python3 scripts/homebrew.py --update --tag {tag}", flush=True)
     if args.push:
         run("git", "push", "--atomic", "origin", "HEAD", f"refs/tags/{tag}")
     else:

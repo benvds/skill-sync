@@ -288,6 +288,7 @@ cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 sh -n install.sh
 python3 -m unittest discover -s tests -p 'test_install.py' -v
+python3 scripts/homebrew.py --check
 ./scripts/test-sync.sh         # networked smoke test in a temporary project
 ./scripts/test-multi-agent.sh  # networked user + project + multi-target test
 ```
@@ -360,5 +361,7 @@ Successful installs retain comparison copies under `.skills.baselines/` (or `ski
 ## Release validation
 
 PR CI validates macOS ARM64, Linux x86_64 and the minimum Rust toolchain. The release workflow calls the same CI before building, packages both platforms, verifies checksums through the actual installer, and runs personal/project initialization, local-source selection, preview, two-agent installation, idempotence, frozen installation, edit protection and backup/recovery against each packaged binary. Publication waits for all packages and smoke tests, and requires a tag matching Cargo.toml. Distribution-related pull requests and manual dispatch validate packages without publishing. HTTPS uses Rustls so the Linux musl binary does not require system OpenSSL.
+
+The Homebrew formula uses the same versioned archives and SHA-256 sidecars, declares Git as a runtime dependency, and is checked offline with `python3 scripts/homebrew.py --check`. Before publishing the tap, install it locally with `brew install --formula ./Formula/skill-sync.rb`, run `skill-sync --version`, and uninstall it on both supported platforms. Tap setup, release updates, credentials and recovery are documented in [Homebrew tap maintenance](homebrew-maintenance.md).
 
 A production release and a smoke test of the publicly downloaded assets remain separate from local implementation checks; no release is published just by building this checkout.

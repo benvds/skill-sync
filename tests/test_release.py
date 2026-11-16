@@ -29,6 +29,10 @@ class ReleaseTests(unittest.TestCase):
         scripts = self.root / "scripts"
         scripts.mkdir()
         shutil.copyfile(ROOT / "scripts/release.py", scripts / "release.py")
+        shutil.copyfile(ROOT / "scripts/homebrew.py", scripts / "homebrew.py")
+        formula = self.root / "Formula"
+        formula.mkdir()
+        shutil.copyfile(ROOT / "Formula/skill-sync.rb", formula / "skill-sync.rb")
         # Stub expensive validation and image generation, keeping real Git/version edits.
         (scripts / "screenshots.py").write_text(
             "from pathlib import Path\n"
