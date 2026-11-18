@@ -114,7 +114,7 @@ Local status shows missing, modified, unverified and unmanaged copies, plus sour
 ## Know what sync will change
 
 - **Install:** a repository, an exact skill path, or a collection of descendant skills. Add `@tag`, `@branch` or `@commit` to select a revision.
-- **Update:** replace owned, unmodified copies. Full commit SHAs are durable pins; branches and tags are resolved again on each sync.
+- **Update:** replace owned, unmodified copies. Full commit SHAs are durable pins; branches and tags are resolved again on each sync. `.skills.lock` records the installed commit, while `--frozen` reuses the commits in `.skills.sources.lock` until you run `update`.
 - **Remove:** reconcile sources or destinations removed from the manifest, after confirmation. Unmanaged files remain outside its ownership.
 - **Recover:** retain successful targets and restore previous files after ordinary copy or state-write failures. Rerun to retry missing work.
 
