@@ -1,0 +1,38 @@
+# ============================================================================
+# Revision pins: branch, tag and commit
+# ============================================================================
+#
+# Add @revision after the complete skill path. The same source can use a
+# different revision at every selected path.
+#
+# A branch or tag name is resolved again on every ordinary sync. If upstream
+# moves it, the next sync updates the copy and records the newly installed
+# commit in .skills.lock. A full commit SHA is a durable pin and does not move.
+#
+# To freeze reviewed commits for teammates or CI:
+#
+#   skill-sync lock --local       # record current commits in .skills.sources.lock
+#   skill-sync --local --frozen   # install those recorded commits, ignoring moved refs
+#   skill-sync update --local     # deliberately refresh the source lock
+#
+# Ordinary sync follows moving refs but does not rewrite the portable source
+# lock. See docs/reference.md#pinning-versions for the worked comparison.
+#
+# To use this file:
+#   cp examples/pinned.skills.toml .skills.toml
+#   skill-sync --local --dry-run
+#
+# ============================================================================
+
+[skills]
+repos = [
+    # Branch pin: follows the branch on each ordinary sync.
+    "anthropics/skills/skills/skill-creator@main",
+
+    # Tag pin: use the exact tag spelling. A re-pointed tag is resolved again
+    # on the next ordinary sync, but --frozen keeps the recorded commit.
+    # "your-org/team-skills/skills/review@v1.2.3",
+
+    # Full commit pin: durable across ordinary and frozen syncs.
+    # "your-org/team-skills/skills/review@0123456789abcdef0123456789abcdef01234567",
+]

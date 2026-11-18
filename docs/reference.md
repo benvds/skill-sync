@@ -159,6 +159,21 @@ The `@revision` suffix comes after the complete source path. It accepts an exact
 
 Git fetch resolves explicit refs and the default HEAD to full commit SHAs. The checkout and lock record that commit, including when it is older than the current branch head. An unknown revision fails without falling back to the default branch. A full commit SHA is the durable pin: tags and branches can move upstream and are resolved again on each run. The lock tracks installed state, rather than freezing a moving tag. Changing a pin updates the existing installation. Different skills in a repository can use different revisions; overlapping selections of the same skill at conflicting revisions fail before installation.
 
+#### Branch and tag pins over time
+
+The deployment lock (`.skills.lock`) always records the commit that was actually installed. The portable source lock (`.skills.sources.lock`) records the reviewed commit that `--frozen` must reuse. They can differ after upstream moves a branch or tag.
+
+Suppose `skill-sync lock --local` records a branch and a tag at commit `1111111`, and both later point at commit `2222222`:
+
+| Command | Branch or tag pin | Full commit pin |
+|---|---|---|
+| `skill-sync lock` / first `skill-sync` | Records and installs `1111111` | Records and installs `1111111` |
+| Ordinary `skill-sync` after the ref moves | Fetches `2222222`, updates the copy, and records `2222222` in `.skills.lock`; `.skills.sources.lock` stays at `1111111` | Keeps and records `1111111` |
+| `skill-sync --frozen` after the ref moves | Ignores the moved ref and installs the source-lock commit `1111111` | Installs `1111111` |
+| `skill-sync update`, then `--frozen` | Rewrites the source lock to `2222222`; frozen installs `2222222` | Rewrites the source lock to `1111111`; frozen installs `1111111` |
+
+So the ordinary test answers "what is upstream now?", while the frozen test answers "what did we review?". `status` cannot answer either question because it is offline. After a sync, inspect `.skills.lock` for the commit that was actually installed, and `.skills.sources.lock` for the input that `--frozen` will reuse; a dry-run previews operations but updates neither lock. See [pinned.skills.toml](../examples/pinned.skills.toml) for branch, tag and commit entries side by side.
+
 The implementation follows the explicit Git-ref approach used by [Cargo](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#choice-of-commit), [npm](https://docs.npmjs.com/cli/v11/configuring-npm/package-json/#git-urls-as-dependencies), and [pip](https://pip.pypa.io/en/stable/topics/vcs-support/#git). The compact suffix preserves existing string manifests. Exact refs avoid introducing a semver range resolver and dependency-update commands; full SHA resolution ensures discovery and checkout use the same snapshot.
 
 Installed directories use `name` from the `SKILL.md` YAML frontmatter. Required names and descriptions are validated; scripts, references, assets, hidden supporting files and executable file permissions are copied. Git internals are excluded. Bundled symlinks and special files are rejected rather than following them outside the source tree. Two sources declaring the same installed name in one manifest are a conflict.
@@ -280,7 +295,7 @@ Uses `GITHUB_TOKEN`, then `gh auth token`, then unauthenticated GitHub access. E
 
 ## Examples and development
 
-See [user.skills.toml](../examples/user.skills.toml), [project.skills.toml](../examples/project.skills.toml), and the legacy [minimal](../examples/minimal.skills.toml), [monorepo](../examples/monorepo.skills.toml) and [mixed](../examples/mixed.skills.toml) manifests.
+See [user.skills.toml](../examples/user.skills.toml), [project.skills.toml](../examples/project.skills.toml), [pinned.skills.toml](../examples/pinned.skills.toml), and the legacy [minimal](../examples/minimal.skills.toml), [monorepo](../examples/monorepo.skills.toml) and [mixed](../examples/mixed.skills.toml) manifests.
 
 ```sh
 cargo fmt --all --check
@@ -292,7 +307,7 @@ python3 -m unittest discover -s tests -p 'test_install.py' -v
 ./scripts/test-multi-agent.sh  # networked user + project + multi-target test
 ```
 
-Automated tests cover independent copies, shared target deduplication, central/project discovery, custom paths, per-target retries, deletion, local edits, rollback after lock failures, old locks and rebasing project locks. Source tests use local Git repositories and a local API fixture; they verify recursive collections, historical commit and tag pins, conflicting revisions, bulk-install confirmation, and reuse of a checkout for multiple selections at one revision. Tests verify the portable filesystem layout without launching live AI agent sessions.
+Automated tests cover independent copies, shared target deduplication, central/project discovery, custom paths, per-target retries, deletion, local edits, rollback after lock failures, old locks and rebasing project locks. Source tests use local Git repositories and a local API fixture; they verify recursive collections, historical commit and tag pins, conflicting revisions, bulk-install confirmation, reuse of a checkout for multiple selections at one revision, and branch/tag movement after a source lock, including frozen reuse and update refresh. Tests verify the portable filesystem layout without launching live AI agent sessions.
 
 
 PR CI runs the Rust suite on macOS/Linux stable and Linux Rust 1.89, plus installer tests. Formatting and Clippy run on Linux. Networked public-GitHub smoke tests remain optional; the automated source tests use local Git repositories and local HTTP fixtures. Runtime dependencies are Git, remote repository access for uncached Git sources, and a filesystem with OS advisory-lock support. Building requires Rust 1.89 or newer. Offline status needs none of the network or Git dependencies.
